@@ -28,6 +28,23 @@ TEST_F(ChainableControllerInterfaceTest, default_returns)
   EXPECT_FALSE(controller.is_in_chained_mode());
 }
 
+TEST_F(ChainableControllerInterfaceTest, export_estimated_interfaces)
+{
+  TestableChainableControllerInterface controller;
+
+  // initialize, create node
+  ASSERT_EQ(controller.init(TEST_CONTROLLER_NAME), controller_interface::return_type::OK);
+  ASSERT_NO_THROW(controller.get_node());
+
+  auto estimated_interfaces = controller.export_estimated_interfaces();
+
+  ASSERT_EQ(estimated_interfaces.size(), 1u);
+  EXPECT_EQ(estimated_interfaces[0].get_prefix_name(), TEST_CONTROLLER_NAME);
+  EXPECT_EQ(estimated_interfaces[0].get_interface_name(), "test_state");
+
+  EXPECT_EQ(estimated_interfaces[0].get_value(), ESTIMATED_INTERFACE_VALUE);
+}
+
 TEST_F(ChainableControllerInterfaceTest, export_reference_interfaces)
 {
   TestableChainableControllerInterface controller;
@@ -45,7 +62,7 @@ TEST_F(ChainableControllerInterfaceTest, export_reference_interfaces)
   EXPECT_EQ(reference_interfaces[0].get_value(), INTERFACE_VALUE);
 }
 
-TEST_F(ChainableControllerInterfaceTest, reference_interfaces_storage_not_correct_size)
+TEST_F(ChainableControllerInterfaceTest, interfaces_storage_not_correct_size)
 {
   TestableChainableControllerInterface controller;
 
@@ -57,9 +74,13 @@ TEST_F(ChainableControllerInterfaceTest, reference_interfaces_storage_not_correc
   controller.reference_interfaces_.clear();
   auto reference_interfaces = controller.export_reference_interfaces();
   ASSERT_TRUE(reference_interfaces.empty());
+  // expect empty return because storage is not resized
+  controller.estimated_interfaces_data_.clear();
+  auto estimated_interfaces = controller.export_estimated_interfaces();
+  ASSERT_TRUE(estimated_interfaces.empty());
 }
 
-TEST_F(ChainableControllerInterfaceTest, reference_interfaces_prefix_is_not_node_name)
+TEST_F(ChainableControllerInterfaceTest, interfaces_prefix_is_not_node_name)
 {
   TestableChainableControllerInterface controller;
 
@@ -72,6 +93,9 @@ TEST_F(ChainableControllerInterfaceTest, reference_interfaces_prefix_is_not_node
   // expect empty return because interface prefix is not equal to the node name
   auto reference_interfaces = controller.export_reference_interfaces();
   ASSERT_TRUE(reference_interfaces.empty());
+  // expect empty return because interface prefix is not equal to the node name
+  auto estimated_interfaces = controller.export_estimated_interfaces();
+  ASSERT_TRUE(estimated_interfaces.empty());
 }
 
 TEST_F(ChainableControllerInterfaceTest, setting_chained_mode)
@@ -84,11 +108,14 @@ TEST_F(ChainableControllerInterfaceTest, setting_chained_mode)
 
   auto reference_interfaces = controller.export_reference_interfaces();
   ASSERT_EQ(reference_interfaces.size(), 1u);
+  auto estimated_interfaces = controller.export_estimated_interfaces();
+  ASSERT_EQ(estimated_interfaces.size(), 1u);
 
   EXPECT_FALSE(controller.is_in_chained_mode());
 
   // Fail setting chained mode
   EXPECT_EQ(reference_interfaces[0].get_value(), INTERFACE_VALUE);
+  EXPECT_EQ(estimated_interfaces[0].get_value(), ESTIMATED_INTERFACE_VALUE);
 
   EXPECT_FALSE(controller.set_chained_mode(true));
   EXPECT_FALSE(controller.is_in_chained_mode());
@@ -101,6 +128,7 @@ TEST_F(ChainableControllerInterfaceTest, setting_chained_mode)
 
   EXPECT_TRUE(controller.set_chained_mode(true));
   EXPECT_TRUE(controller.is_in_chained_mode());
+  EXPECT_EQ(estimated_interfaces[0].get_value(), ESTIMATED_INTERFACE_VALUE_IN_CHAINMODE);
 
   controller.configure();
   EXPECT_TRUE(controller.set_chained_mode(false));
@@ -136,6 +164,7 @@ TEST_F(ChainableControllerInterfaceTest, test_update_logic)
     controller.update(rclcpp::Time(0), rclcpp::Duration::from_seconds(0.01)),
     controller_interface::return_type::OK);
   ASSERT_EQ(controller.reference_interfaces_[0], INTERFACE_VALUE_INITIAL_REF - 1);
+  ASSERT_EQ(controller.estimated_interfaces_data_[0], ESTIMATED_INTERFACE_VALUE + 1);
 
   // Provoke error in update from subscribers - return ERROR and update_and_write_commands not exec.
   controller.set_new_reference_interface_value(INTERFACE_VALUE_SUBSCRIBER_ERROR);
@@ -143,6 +172,7 @@ TEST_F(ChainableControllerInterfaceTest, test_update_logic)
     controller.update(rclcpp::Time(0), rclcpp::Duration::from_seconds(0.01)),
     controller_interface::return_type::ERROR);
   ASSERT_EQ(controller.reference_interfaces_[0], INTERFACE_VALUE_INITIAL_REF - 1);
+  ASSERT_EQ(controller.estimated_interfaces_data_[0], ESTIMATED_INTERFACE_VALUE + 1);
 
   // Provoke error from update - return ERROR, but reference interface is updated and not reduced
   controller.set_new_reference_interface_value(INTERFACE_VALUE_UPDATE_ERROR);
@@ -150,6 +180,7 @@ TEST_F(ChainableControllerInterfaceTest, test_update_logic)
     controller.update(rclcpp::Time(0), rclcpp::Duration::from_seconds(0.01)),
     controller_interface::return_type::ERROR);
   ASSERT_EQ(controller.reference_interfaces_[0], INTERFACE_VALUE_UPDATE_ERROR);
+  ASSERT_EQ(controller.estimated_interfaces_data_[0], ESTIMATED_INTERFACE_VALUE + 1);
 
   controller.reference_interfaces_[0] = 0.0;
 
@@ -163,6 +194,7 @@ TEST_F(ChainableControllerInterfaceTest, test_update_logic)
     controller.update(rclcpp::Time(0), rclcpp::Duration::from_seconds(0.01)),
     controller_interface::return_type::OK);
   ASSERT_EQ(controller.reference_interfaces_[0], -1.0);
+  ASSERT_EQ(controller.estimated_interfaces_data_[0], ESTIMATED_INTERFACE_VALUE_IN_CHAINMODE + 1);
 
   // Provoke error from update - return ERROR, but reference interface is updated directly
   controller.set_new_reference_interface_value(INTERFACE_VALUE_SUBSCRIBER_ERROR);
@@ -171,4 +203,5 @@ TEST_F(ChainableControllerInterfaceTest, test_update_logic)
     controller.update(rclcpp::Time(0), rclcpp::Duration::from_seconds(0.01)),
     controller_interface::return_type::ERROR);
   ASSERT_EQ(controller.reference_interfaces_[0], INTERFACE_VALUE_UPDATE_ERROR);
+  ASSERT_EQ(controller.estimated_interfaces_data_[0], ESTIMATED_INTERFACE_VALUE_IN_CHAINMODE + 1);
 }
