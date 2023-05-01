@@ -68,9 +68,9 @@ bool controller_name_compare(const controller_manager::ControllerSpec & a, const
   return a.info.name == name;
 }
 
-/// Checks if a command interface belongs to a controller based on its prefix.
+/// Checks if an interface belongs to a controller based on its prefix.
 /**
- * A command interface can be provided by a controller in which case is called "reference"
+ * A State/Command interface can be provided by a controller in which case is called "estimated/reference"
  * interface.
  * This means that the @interface_name starts with the name of a controller.
  *
@@ -80,7 +80,7 @@ bool controller_name_compare(const controller_manager::ControllerSpec & a, const
  * @interface_name belongs to.
  * \return true if interface has a controller name as prefix, false otherwise.
  */
-bool command_interface_is_reference_interface_of_controller(
+bool is_interface_a_chained_interface(
   const std::string interface_name,
   const std::vector<controller_manager::ControllerSpec> & controllers,
   controller_manager::ControllersListIterator & following_controller_it)
@@ -110,7 +110,7 @@ bool command_interface_is_reference_interface_of_controller(
   {
     RCLCPP_DEBUG(
       rclcpp::get_logger("ControllerManager::utils"),
-      "Required command interface '%s' with prefix '%s' is not reference interface.",
+      "Required interface '%s' with prefix '%s' is not a chained interface.",
       interface_name.c_str(), interface_prefix.c_str());
 
     return false;
@@ -1926,8 +1926,7 @@ void ControllerManager::propagate_deactivation_of_chained_mode(
       {
         // controller that 'cmd_tf_name' belongs to
         ControllersListIterator following_ctrl_it;
-        if (command_interface_is_reference_interface_of_controller(
-              cmd_itf_name, controllers, following_ctrl_it))
+        if (is_interface_a_chained_interface(cmd_itf_name, controllers, following_ctrl_it))
         {
           // currently iterated "controller" is preceding controller --> add following controller
           // with matching interface name to "from" chained mode list (if not already in it)
@@ -1960,8 +1959,7 @@ controller_interface::return_type ControllerManager::check_following_controllers
   {
     ControllersListIterator following_ctrl_it;
     // Check if interface if reference interface and following controller exist.
-    if (!command_interface_is_reference_interface_of_controller(
-          cmd_itf_name, controllers, following_ctrl_it))
+    if (!is_interface_a_chained_interface(cmd_itf_name, controllers, following_ctrl_it))
     {
       continue;
     }
