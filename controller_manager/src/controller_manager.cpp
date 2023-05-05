@@ -583,6 +583,7 @@ void ControllerManager::clear_requests()
   activate_request_.clear();
   to_chained_mode_request_.clear();
   from_chained_mode_request_.clear();
+  to_use_references_from_subscribers_.clear();
   activate_command_interface_request_.clear();
   deactivate_command_interface_request_.clear();
 }
@@ -817,6 +818,12 @@ controller_interface::return_type ControllerManager::switch_controller(
       from_chained_mode_request_.begin(), from_chained_mode_request_.end(), controller.info.name);
     bool in_from_chained_mode_list = from_chained_mode_list_it != from_chained_mode_request_.end();
 
+    auto to_use_ref_from_sub_it = std::find(
+      to_use_references_from_subscribers_.begin(), to_use_references_from_subscribers_.end(),
+      controller.info.name);
+    bool in_to_use_ref_from_sub_list =
+      to_use_ref_from_sub_it != to_use_references_from_subscribers_.end();
+
     auto deactivate_list_it =
       std::find(deactivate_request_.begin(), deactivate_request_.end(), controller.info.name);
     bool in_deactivate_list = deactivate_list_it != deactivate_request_.end();
@@ -825,7 +832,7 @@ controller_interface::return_type ControllerManager::switch_controller(
     const bool is_inactive = is_controller_inactive(*controller.c);
 
     // restart controllers that need to switch their 'chained mode' - add to (de)activate lists
-    if (in_to_chained_mode_list || in_from_chained_mode_list)
+    if (in_to_chained_mode_list || in_from_chained_mode_list || in_to_use_ref_from_sub_list)
     {
       if (is_active && !in_deactivate_list)
       {
@@ -1119,8 +1126,19 @@ void ControllerManager::manage_switch()
 
   deactivate_controllers(rt_controller_list, deactivate_request_);
 
+  for (auto ctrl : deactivate_request_)
+  {
+    RCLCPP_DEBUG(get_logger(), "Deactivating : %s", ctrl.c_str());
+  }
+
   switch_chained_mode(to_chained_mode_request_, true);
   switch_chained_mode(from_chained_mode_request_, false);
+  switch_chained_mode(to_use_references_from_subscribers_, true);
+
+  for (auto ctrl : activate_request_)
+  {
+    RCLCPP_DEBUG(get_logger(), "Activating : %s", ctrl.c_str());
+  }
 
   // activate controllers once the switch is fully complete
   if (!switch_params_.activate_asap)
@@ -1194,14 +1212,36 @@ void ControllerManager::switch_chained_mode(
     {
       if (controller->set_chained_mode(to_chained_mode))
       {
+        bool set_reference_from_subscribers = false;
+        if (
+          std::find(
+            to_use_references_from_subscribers_.begin(), to_use_references_from_subscribers_.end(),
+            found_it->info.name) != to_use_references_from_subscribers_.end())
+        {
+          RCLCPP_DEBUG(
+            get_logger(), "Will use the references from subscribers for the controller : %s",
+            found_it->info.name.c_str());
+          set_reference_from_subscribers = true;
+        }
         if (to_chained_mode)
         {
-          resource_manager_->make_controller_reference_interfaces_available(request);
+          //          // enable references from the controller interfaces
+          //          controller->toggle_references_from_subscribers(false);
+          //          resource_manager_->make_controller_reference_interfaces_available(request);
+          resource_manager_->make_controller_estimated_interfaces_available(request);
         }
         else
         {
-          resource_manager_->make_controller_reference_interfaces_unavailable(request);
+          //          // enable references from the subscribers
+          //          controller->toggle_references_from_subscribers(true);
+          //          resource_manager_->make_controller_reference_interfaces_unavailable(request);
+          resource_manager_->make_controller_estimated_interfaces_unavailable(request);
         }
+        controller->toggle_references_from_subscribers(set_reference_from_subscribers);
+        if (set_reference_from_subscribers)
+          resource_manager_->make_controller_reference_interfaces_unavailable(request);
+        else
+          resource_manager_->make_controller_reference_interfaces_available(request);
       }
       else
       {
@@ -1422,12 +1462,18 @@ void ControllerManager::list_controllers_srv_cb(
           controller_chain_interface_map[controller_state.name].push_back(interface_type);
         }
       }
-      // check reference interfaces only if controller is inactive or active
+      // check state and reference interfaces only if controller is inactive or active
       auto references = controllers[i].c->export_reference_interfaces();
+      auto state_interfaces = controllers[i].c->export_estimated_interfaces();
       controller_state.reference_interfaces.reserve(references.size());
+      controller_state.state_interfaces.reserve(state_interfaces.size());
       for (const auto & reference : references)
       {
         controller_state.reference_interfaces.push_back(reference.get_interface_name());
+      }
+      for (const auto & reference : state_interfaces)
+      {
+        controller_state.state_interfaces.push_back(reference.get_interface_name());
       }
     }
     response->controller.push_back(controller_state);
@@ -1968,15 +2014,34 @@ void ControllerManager::propagate_deactivation_of_chained_mode(
         break;
       }
 
-      for (const auto & cmd_itf_name : controller.c->command_interface_configuration().names)
+      auto controller_interfaces = controller.c->command_interface_configuration().names;
+      auto controller_state_interfaces = controller.c->state_interface_configuration().names;
+      for (const auto & ctrl_itf_name : controller_interfaces)
       {
         // controller that 'cmd_tf_name' belongs to
         ControllersListIterator following_ctrl_it;
-        if (is_interface_a_chained_interface(cmd_itf_name, controllers, following_ctrl_it))
+        if (
+          is_interface_a_chained_interface(ctrl_itf_name, controllers, following_ctrl_it) &&
+          std::find(
+            controller_state_interfaces.begin(), controller_state_interfaces.end(),
+            ctrl_itf_name) == controller_state_interfaces.end())
         {
+          auto found_it = std::find(
+            to_use_references_from_subscribers_.begin(), to_use_references_from_subscribers_.end(),
+            following_ctrl_it->info.name);
+          if (found_it == to_use_references_from_subscribers_.end())
+          {
+            // IN this case we check if the interface is command only and then add to use references_from_subscribers list
+            to_use_references_from_subscribers_.push_back(following_ctrl_it->info.name);
+            RCLCPP_DEBUG(
+              get_logger(), "Adding controller '%s' in 'use references from subscriber' request.",
+              following_ctrl_it->info.name.c_str());
+          }
           // currently iterated "controller" is preceding controller --> add following controller
           // with matching interface name to "from" chained mode list (if not already in it)
           if (
+            !is_controller_estimated_interfaces_inuse_by_other_controllers(
+              following_ctrl_it->info.name, controllers, deactivate_request_) &&
             std::find(
               from_chained_mode_request_.begin(), from_chained_mode_request_.end(),
               following_ctrl_it->info.name) == from_chained_mode_request_.end())
@@ -2001,11 +2066,16 @@ controller_interface::return_type ControllerManager::check_following_controllers
     get_logger(), "Checking following controllers of preceding controller with name '%s'.",
     controller_it->info.name.c_str());
 
-  for (const auto & cmd_itf_name : controller_it->c->command_interface_configuration().names)
+  auto controller_interfaces = controller_it->c->command_interface_configuration().names;
+  auto controller_state_interfaces = controller_it->c->state_interface_configuration().names;
+  controller_interfaces.insert(
+    controller_interfaces.end(), controller_state_interfaces.begin(),
+    controller_state_interfaces.end());
+  for (const auto & ctrl_itf_name : controller_interfaces)
   {
     ControllersListIterator following_ctrl_it;
     // Check if interface if reference interface and following controller exist.
-    if (!is_interface_a_chained_interface(cmd_itf_name, controllers, following_ctrl_it))
+    if (!is_interface_a_chained_interface(ctrl_itf_name, controllers, following_ctrl_it))
     {
       continue;
     }
@@ -2025,9 +2095,9 @@ controller_interface::return_type ControllerManager::check_following_controllers
     {
       RCLCPP_WARN(
         get_logger(),
-        "No reference interface '%s' exist, since the following controller with name '%s' "
-        "is not chainable.",
-        cmd_itf_name.c_str(), following_ctrl_it->info.name.c_str());
+        "No estimated/reference interface '%s' exist, since the following controller with name "
+        "'%s' is not chainable.",
+        ctrl_itf_name.c_str(), following_ctrl_it->info.name.c_str());
       return controller_interface::return_type::ERROR;
     }
 
@@ -2102,6 +2172,26 @@ controller_interface::return_type ControllerManager::check_following_controllers
           following_ctrl_it->info.name.c_str());
       }
     }
+
+    auto following_ctrl_ref_itf = following_ctrl_it->c->command_interface_configuration().names;
+    if (
+      std::find(following_ctrl_ref_itf.begin(), following_ctrl_ref_itf.end(), ctrl_itf_name) !=
+      following_ctrl_ref_itf.end())
+    {
+      auto found_it = std::find(
+        to_use_references_from_subscribers_.begin(), to_use_references_from_subscribers_.end(),
+        following_ctrl_it->info.name);
+      if (found_it != to_use_references_from_subscribers_.end())
+      {
+        to_use_references_from_subscribers_.erase(found_it);
+        RCLCPP_DEBUG(
+          get_logger(),
+          "Removing controller '%s' in 'from using references from subscribers' request because "
+          "it "
+          "should stay in chained mode for command interfaces.",
+          following_ctrl_it->info.name.c_str());
+      }
+    }
   }
   return controller_interface::return_type::OK;
 };
@@ -2130,6 +2220,13 @@ controller_interface::return_type ControllerManager::check_preceeding_controller
     get_logger(), "Checking preceding controller of following controller with name '%s'.",
     controller_it->info.name.c_str());
 
+  auto controller_interfaces =
+    resource_manager_->get_controller_reference_interface_names(controller_it->info.name);
+  const auto controller_estimated_interfaces =
+    resource_manager_->get_controller_estimated_interface_names(controller_it->info.name);
+  controller_interfaces.insert(
+    controller_interfaces.end(), controller_estimated_interfaces.begin(),
+    controller_estimated_interfaces.end());
   for (const auto & ref_itf_name :
        resource_manager_->get_controller_reference_interface_names(controller_it->info.name))
   {
@@ -2187,6 +2284,20 @@ controller_interface::return_type ControllerManager::check_preceeding_controller
       // // insert to the begin of activate request list to be activated before preceding controller
       //   activate_request_.insert(activate_request_.begin(), preceding_ctrl_name);
       // }
+    }
+  }
+
+  for (const auto ctrl : deactivate_request_)
+  {
+    if (is_controller_estimated_interfaces_inuse_by_other_controllers(
+          ctrl, controllers, deactivate_request_))
+    {
+      RCLCPP_WARN(
+        get_logger(),
+        "Could not deactivate controller with name '%s' because "
+        "it seems that the controller's estimated interfaces are inuse.",
+        controller_it->info.name.c_str());
+      return controller_interface::return_type::ERROR;
     }
   }
   return controller_interface::return_type::OK;

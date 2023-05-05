@@ -498,6 +498,7 @@ private:
 
   std::vector<std::string> activate_request_, deactivate_request_;
   std::vector<std::string> to_chained_mode_request_, from_chained_mode_request_;
+  std::vector<std::string> to_use_references_from_subscribers_;
   std::vector<std::string> activate_command_interface_request_,
     deactivate_command_interface_request_;
 
