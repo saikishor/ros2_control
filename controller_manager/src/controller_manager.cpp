@@ -707,9 +707,6 @@ controller_interface::return_type ControllerManager::switch_controller(
 
   const std::vector<ControllerSpec> & controllers = rt_controllers_wrapper_.get_updated_list(guard);
 
-  // if a preceding controller is deactivated, all first-level controllers should be switched 'from'
-  // chained mode
-  propagate_deactivation_of_chained_mode(controllers);
 
   // check if controllers should be switched 'to' chained mode when controllers are activated
   for (auto ctrl_it = activate_request_.begin(); ctrl_it != activate_request_.end(); ++ctrl_it)
@@ -807,6 +804,12 @@ controller_interface::return_type ControllerManager::switch_controller(
       }
     }
   }
+
+  // if a preceding controller is deactivated, all first-level controllers should be switched 'from'
+  // chained mode. Perform this operaiton once the deactivate request is successfully checked as in
+  // the BEST_EFFORT there might be cases where some controllers might be removed from the
+  // deactivate_request_ list
+  propagate_deactivation_of_chained_mode(controllers);
 
   for (const auto & controller : controllers)
   {
