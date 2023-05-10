@@ -937,45 +937,6 @@ TEST_P(
     lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE,
     robot_localization_controller->get_state().id());
 
-  /*
-  // DiffDrive (preceding) controller is activated --> PID controller in chained mode
-  // There will be no increment in the counter as the deactivation should fail, So first the sensor fusion controller,
-  // robot localization controller and odometry publisher controller
-  DeactivateAndCheckController(
-    diff_drive_controller, DIFF_DRIVE_CONTROLLER, DIFF_DRIVE_CLAIMED_INTERFACES, 14u, true,
-    controller_interface::return_type::ERROR, std::future_status::ready);
-  EXPECT_TRUE(pid_left_wheel_controller->is_in_chained_mode());
-  EXPECT_TRUE(pid_right_wheel_controller->is_in_chained_mode());
-  ASSERT_TRUE(diff_drive_controller->is_in_chained_mode());
-  ASSERT_TRUE(sensor_fusion_controller->is_in_chained_mode());
-  EXPECT_EQ(
-    lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE, diff_drive_controller->get_state().id());
-  EXPECT_EQ(
-    lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE, sensor_fusion_controller->get_state().id());
-  EXPECT_EQ(
-    lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE, odom_publisher_controller->get_state().id());
-  EXPECT_EQ(
-    lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE,
-    robot_localization_controller->get_state().id());
-
-  // Trying to deactivate the sensor fusion controller, however, it won't be deactivated as the robot localization controller is still active
-  DeactivateAndCheckController(
-    sensor_fusion_controller, SENSOR_FUSION_CONTROLLER, {}, 11u, true,
-    controller_interface::return_type::ERROR, std::future_status::ready);
-  EXPECT_TRUE(pid_left_wheel_controller->is_in_chained_mode());
-  EXPECT_TRUE(pid_right_wheel_controller->is_in_chained_mode());
-  ASSERT_TRUE(diff_drive_controller->is_in_chained_mode());
-  ASSERT_TRUE(sensor_fusion_controller->is_in_chained_mode());
-  EXPECT_EQ(
-    lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE, diff_drive_controller->get_state().id());
-  EXPECT_EQ(
-    lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE, sensor_fusion_controller->get_state().id());
-  EXPECT_EQ(
-    lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE, odom_publisher_controller->get_state().id());
-  EXPECT_EQ(
-    lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE,
-    robot_localization_controller->get_state().id()); */
-
   // Deactivate the robot localization controller and see that the sensor fusion controller is still active but not in the chained mode
   DeactivateAndCheckController(
     robot_localization_controller, ROBOT_LOCALIZATION_CONTROLLER, {}, 8u);
@@ -1010,7 +971,7 @@ TEST_P(
     lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE,
     robot_localization_controller->get_state().id());
 
-  // Deactivate the odometry publisher controller and see that the diff_drive_controller is still active but not in the chained mode
+  // Deactivate the sensor_fusion controller and see that the diff_drive_controller is still active but not in the chained mode
   DeactivateAndCheckController(sensor_fusion_controller, SENSOR_FUSION_CONTROLLER, {}, 14u);
   EXPECT_TRUE(pid_left_wheel_controller->is_in_chained_mode());
   EXPECT_TRUE(pid_right_wheel_controller->is_in_chained_mode());
