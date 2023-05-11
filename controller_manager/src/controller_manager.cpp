@@ -818,11 +818,9 @@ controller_interface::return_type ControllerManager::configure_controller(
         controller_name.c_str());
       return controller_interface::return_type::ERROR;
     }
-    if (!ref_interfaces.empty())
-      resource_manager_->import_controller_reference_interfaces(controller_name, ref_interfaces);
-    if (!estimated_interfaces.empty())
-      resource_manager_->import_controller_estimated_interfaces(
-        controller_name, estimated_interfaces);
+    resource_manager_->import_controller_reference_interfaces(controller_name, ref_interfaces);
+    resource_manager_->import_controller_estimated_interfaces(
+      controller_name, estimated_interfaces);
     // TODO(destogl): check and resort controllers in the vector
   }
 
