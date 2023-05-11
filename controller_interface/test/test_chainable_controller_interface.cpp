@@ -157,6 +157,7 @@ TEST_F(ChainableControllerInterfaceTest, test_update_logic)
   ASSERT_EQ(controller.init(TEST_CONTROLLER_NAME), controller_interface::return_type::OK);
   ASSERT_NO_THROW(controller.get_node());
 
+  EXPECT_TRUE(controller.toggle_references_from_subscribers(true));
   EXPECT_FALSE(controller.is_in_chained_mode());
 
   // call update and update it from subscriber because not in chained mode
@@ -185,6 +186,7 @@ TEST_F(ChainableControllerInterfaceTest, test_update_logic)
   controller.reference_interfaces_[0] = 0.0;
 
   EXPECT_TRUE(controller.set_chained_mode(true));
+  EXPECT_TRUE(controller.toggle_references_from_subscribers(false));
   EXPECT_TRUE(controller.is_in_chained_mode());
 
   // Provoke error in update from subscribers - return OK because update of subscribers is not used
