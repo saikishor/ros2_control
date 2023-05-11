@@ -155,7 +155,7 @@ std::vector<std::string> get_following_controller_names(
   for (const auto & itf : cmd_itfs)
   {
     controller_manager::ControllersListIterator ctrl_it;
-    if (command_interface_is_reference_interface_of_controller(itf, controllers, ctrl_it))
+    if (is_interface_a_chained_interface(itf, controllers, ctrl_it))
     {
       RCLCPP_DEBUG(
         rclcpp::get_logger("ControllerManager::utils"),
