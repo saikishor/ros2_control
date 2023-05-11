@@ -1467,11 +1467,17 @@ void ControllerManager::switch_chained_mode(
       {
         if (to_chained_mode)
         {
+          // enable references from the controller interfaces
+          controller->toggle_references_from_subscribers(false);
+          // make all the exported interfaces of the controller available
+          resource_manager_->make_controller_estimated_interfaces_available(request);
           resource_manager_->make_controller_reference_interfaces_available(request);
         }
         else
         {
-          resource_manager_->make_controller_reference_interfaces_unavailable(request);
+          // release estimated interfaces of the controller and the release of reference interfaces
+          // is handled by the to_use_references_from_subscribers_ list
+          resource_manager_->make_controller_estimated_interfaces_unavailable(request);
         }
       }
       else
