@@ -1558,12 +1558,18 @@ void ControllerManager::list_controllers_srv_cb(
           controller_chain_interface_map[controller_state.name].push_back(interface_type);
         }
       }
-      // check reference interfaces only if controller is inactive or active
+      // check estimated and reference interfaces only if controller is inactive or active
       auto references = controllers[i].c->export_reference_interfaces();
+      auto estimated_interfaces = controllers[i].c->export_estimated_interfaces();
       controller_state.reference_interfaces.reserve(references.size());
+      controller_state.estimated_interfaces.reserve(estimated_interfaces.size());
       for (const auto & reference : references)
       {
         controller_state.reference_interfaces.push_back(reference.get_interface_name());
+      }
+      for (const auto & estimate : estimated_interfaces)
+      {
+        controller_state.estimated_interfaces.push_back(estimate.get_interface_name());
       }
     }
     response->controller.push_back(controller_state);
