@@ -389,6 +389,16 @@ private:
     const std::vector<ControllerSpec> & controllers, int strictness,
     const ControllersListIterator controller_it);
 
+  ///Sets if the parsed vector of controller's reference interfacs are available to use or not
+  /**
+   * Sets the availability status of the reference interfaces of the given list of controllers
+   * @param[in] controllers list
+   * @param[in] available - To specify they are needed to be available or unavailable for other
+   * controllers to use
+   */
+  void set_controllers_reference_interfaces_availability(
+    const std::vector<std::string> & controllers, bool available);
+
   void controller_activity_diagnostic_callback(diagnostic_updater::DiagnosticStatusWrapper & stat);
   diagnostic_updater::Updater diagnostics_updater_;
 
@@ -507,6 +517,7 @@ private:
 
   std::vector<std::string> activate_request_, deactivate_request_;
   std::vector<std::string> to_chained_mode_request_, from_chained_mode_request_;
+  std::vector<std::string> to_use_references_from_subscribers_;
   std::vector<std::string> activate_command_interface_request_,
     deactivate_command_interface_request_;
 
