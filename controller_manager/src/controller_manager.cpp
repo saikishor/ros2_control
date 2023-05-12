@@ -2027,7 +2027,22 @@ void ControllerManager::propagate_deactivation_of_chained_mode(
                 following_ctrl_it->info.name) == from_chained_mode_request_.end())
             {
               from_chained_mode_request_.push_back(following_ctrl_it->info.name);
-              to_use_references_from_subscribers_.push_back(following_ctrl_it->info.name);
+              bool is_following_controller_not_needed_by_activation_controller = true;
+              for (auto ctrl_it = activate_request_.begin(); ctrl_it != activate_request_.end();
+                   ++ctrl_it)
+              {
+                auto activate_ctrl_it = std::find_if(
+                  controllers.begin(), controllers.end(),
+                  std::bind(controller_name_compare, std::placeholders::_1, *ctrl_it));
+                const auto cmd_itfs = activate_ctrl_it->c->command_interface_configuration().names;
+                for (auto & cmd_itf : cmd_itfs)
+                {
+                  if (is_interface_exported_from_controller(cmd_itf, following_ctrl_it->info.name))
+                    is_following_controller_not_needed_by_activation_controller = false;
+                }
+              }
+              if (is_following_controller_not_needed_by_activation_controller)
+                to_use_references_from_subscribers_.push_back(following_ctrl_it->info.name);
               RCLCPP_DEBUG(
                 get_logger(), "Adding controller '%s' in 'from chained mode' request.",
                 following_ctrl_it->info.name.c_str());
