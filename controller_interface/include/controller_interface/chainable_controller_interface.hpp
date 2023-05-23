@@ -41,7 +41,8 @@ public:
   virtual ~ChainableControllerInterface() = default;
 
   /**
-   * Control step update. Command interfaces are updated based on on reference inputs and current states.
+   * Control step update. Command interfaces are updated based on on reference inputs and current
+   * states.
    * **The method called in the (real-time) control loop.**
    *
    * \param[in] time The time at the start of this control loop iteration
@@ -67,11 +68,11 @@ public:
   bool is_in_chained_mode() const final;
 
   CONTROLLER_INTERFACE_PUBLIC
-  virtual bool toggle_references_from_subscribers(bool enable) final;
+  bool toggle_references_from_subscribers(bool enable) final;
 
 protected:
-  /// Virtual method that each chainable controller should implement to export its read-only chainable
-  /// interfaces.
+  /// Virtual method that each chainable controller should implement to export its read-only
+  /// chainable interfaces.
   /**
    * Each chainable controller implements this methods where all its state(read only) interfaces are
    * exported. The method has the same meaning as `export_estimated_interfaces` method from
@@ -81,8 +82,8 @@ protected:
    */
   virtual std::vector<hardware_interface::StateInterface> on_export_estimated_interfaces() = 0;
 
-  /// Virtual method that each chainable controller should implement to export its read/write chainable
-  /// interfaces.
+  /// Virtual method that each chainable controller should implement to export its read/write
+  /// chainable interfaces.
   /**
    * Each chainable controller implements this methods where all input (command) interfaces are
    * exported. The method has the same meaning as `export_command_interface` method from
@@ -100,7 +101,9 @@ protected:
    *
    * \param[in] flag marking a switch to or from chained mode.
    *
-   * \returns true if controller successfully switched between "chained" and "external" mode. \default returns true so the method don't have to be overridden if controller can always switch chained mode.
+   * \returns true if controller successfully switched between "chained" and "external" mode.
+   * \default returns true so the method don't have to be overridden if controller can always switch
+   * chained mode.
    */
   virtual bool on_set_chained_mode(bool chained_mode);
 
@@ -138,7 +141,8 @@ private:
   /// A flag marking if a chainable controller is currently preceded by another controller.
   bool in_chained_mode_ = false;
 
-  /// A flag marking whether to use references from subscribers or from the interfaces as input commands
+  /// A flag marking whether to use references from subscribers or from the interfaces as input
+  /// commands
   bool use_references_from_subscribers_ = false;
 };
 
