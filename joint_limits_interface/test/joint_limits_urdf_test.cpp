@@ -14,9 +14,9 @@
 
 /// \author Adolfo Rodriguez Tsouroukdissian
 
-#include <gtest/gtest.h>
-
 #include <joint_limits_interface/joint_limits_urdf.hpp>
+
+#include <gtest/gtest.h>
 
 #include <string>
 
