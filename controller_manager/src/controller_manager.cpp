@@ -1902,6 +1902,84 @@ const std::vector<ControllerSpec> & ControllerManager::RTControllerListWrapper::
   return controllers_lists_[updated_controllers_index_];
 }
 
+const std::vector<ControllerSpec> &
+ControllerManager::RTControllerListWrapper::get_ordered_updated_list(
+  const std::lock_guard<std::recursive_mutex> &) const
+{
+  if (!controllers_lock_.try_lock())
+  {
+    throw std::runtime_error("controllers_lock_ not owned by thread");
+  }
+  controllers_lock_.unlock();
+  std::vector<ControllerSpec> ordered_controllers_list;
+  std::vector<ControllerSpec> no_claimed_itf_ctrls, chainable_ctrls, cmd_itf_ctrls;
+  const auto & updated_controllers_list = controllers_lists_[updated_controllers_index_];
+  for (auto & controller : updated_controllers_list)
+  {
+    // If there are no claimed interfaces, then this type of controller works with the state
+    // interfaces(for instance, joint_state_broadcaster). So, it is better to update those
+    // controllers first always;
+    if (controller.info.claimed_interfaces.empty())
+    {
+      no_claimed_itf_ctrls.insert(no_claimed_itf_ctrls.begin(), controller);
+    }
+    else
+    {
+      if (controller.c->is_chainable())
+      {
+        for (const auto & itf : controller.info.claimed_interfaces)
+        {
+          ControllersListIterator following_ctrl_it;
+          if (command_interface_is_reference_interface_of_controller(
+                itf, updated_controllers_list, following_ctrl_it))
+          {
+            // this means it is a chainable controller but it wasn't in the list, let's start by
+            // adding it in the last
+            auto ctrl_itr =
+              std::find(chainable_ctrls.begin(), chainable_ctrls.end(), controller.info.name);
+            if (ctrl_itr == chainable_ctrls.end())
+            {
+              chainable_ctrls.push_back(controller);
+            }
+            if (
+              std::find(
+                chainable_ctrls.begin(), chainable_ctrls.end(), following_ctrl_it->info.name) ==
+              chainable_ctrls.end())
+            {
+              chainable_ctrls.insert(ctrl_itr + 1, *following_ctrl_it);
+            }
+          }
+        }
+      }
+      else
+      {
+        // This is to handle the case for the controllers that command to the chainable controllers
+        // instead of the main system interfaces directly
+        bool is_command_interface_is_reference_interface_of_controller(false);
+        for (const auto & itf : controller.info.claimed_interfaces)
+        {
+          ControllersListIterator following_ctrl_it;
+          if (command_interface_is_reference_interface_of_controller(
+                itf, updated_controllers_list, following_ctrl_it))
+          {
+            is_command_interface_is_reference_interface_of_controller = true;
+            chainable_ctrls.insert(chainable_ctrls.begin(), controller);
+            chainable_ctrls.insert(chainable_ctrls.begin() + 1, *following_ctrl_it);
+            break;
+          }
+        }
+        // This is for the controllers that directly command to the system interfaces rather than
+        // the chainable controllers
+        if (!is_command_interface_is_reference_interface_of_controller)
+        {
+          cmd_itf_ctrls.push_back(controller);
+        }
+      }
+    }
+  }
+  return ordered_controllers_list;
+}
+
 void ControllerManager::RTControllerListWrapper::switch_updated_list(
   const std::lock_guard<std::recursive_mutex> &)
 {

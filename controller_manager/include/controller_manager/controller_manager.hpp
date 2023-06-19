@@ -449,6 +449,15 @@ private:
     const std::vector<ControllerSpec> & get_updated_list(
       const std::lock_guard<std::recursive_mutex> & guard) const;
 
+    /// get_ordered_updated_list Returns a const reference to the most updated list in a order.
+    /**
+     * \warning May or may not being used by the realtime thread, read-only reference for safety
+     * \param[in] guard Guard needed to make sure the caller is the only one accessing the unused by
+     * rt list
+     */
+    const std::vector<ControllerSpec> & get_ordered_updated_list(
+      const std::lock_guard<std::recursive_mutex> & guard) const;
+
     /**
      * switch_updated_list Switches the "updated" and "outdated" lists, and waits
      *  until the RT thread is using the new "updated" list.
