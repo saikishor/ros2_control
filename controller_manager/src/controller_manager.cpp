@@ -574,6 +574,79 @@ controller_interface::return_type ControllerManager::configure_controller(
     // TODO(destogl): check and resort controllers in the vector
   }
 
+//  std::lock_guard<std::recursive_mutex> guard(rt_controllers_wrapper_.controllers_lock_);
+//  std::vector<ControllerSpec> & controller_list =
+//     rt_controllers_wrapper_.get_unused_list(guard);
+//  controller_list = controllers;
+//  // Sorting of the controllers
+//  /// @note The following conditions needs to be handled while ordering the controller list
+//  /// 1. The controllers that do not use any state or command interfaces are updated first
+//  /// 2. The controllers that use only the state system interfaces only are updated first
+//  /// 3. The controllers that use the controller's estimated interfaces are updated after the
+//  /// preceeding controller
+//  /// 4. The controllers that use any of an another controller's reference interface are updated
+//  /// before the preceeding controller
+//  /// 5. The controllers that only use the system's command interfaces are updated last
+//  /// 6. There is a chainable controller loaded but none of it's resources are being used
+//  auto sorting_lambda = [](ControllerSpec ctrl_a, ControllerSpec ctrl_b){
+
+//    const std::vector<std::string> cmd_itfs = ctrl_a.c->command_interface_configuration().names;
+//    const std::vector<std::string> state_itfs = ctrl_a.c->state_interface_configuration().names;
+//    std::vector<std::string> all_itfs(cmd_itfs);
+//    all_itfs.insert(all_itfs.begin(), state_itfs.begin(), state_itfs.end());
+//    /// Let's handle the cases of non-chainable controllers
+//    // The case of the controllers that don't have any command interfaces. For instance,
+//    // joint_state_broadcaster
+//    for(auto &ctrl : {ctrl_a, ctrl_b})
+//    {
+//    if(!is_controller_active(ctrl.c) && !is_controller_inactive(ctrl.c))
+//      return false;
+//    }
+//    if (cmd_itfs.empty() && !ctrl_a.c->is_chainable())
+//      return true;
+//    else
+//    {
+//      if (ctrl_b.c->is_chainable())
+//      {
+//        // If the ctrl_a's command interface is the one exported by the ctrl_b then ctrl_a should be
+//        // infront of ctrl_b
+//        auto it = std::find_if(
+//          cmd_itfs.begin(), cmd_itfs.end(),
+//          [ctrl_b](auto itf) { return (itf.find(ctrl_b.info.name) != std::string::npos); });
+//        if (it != cmd_itfs.end())
+//        {
+//          return true;
+//        }
+//        else
+//        {
+//          // If the ctrl_a's state interface is the one exported by the ctrl_b then ctrl_b should be
+//          // infront of ctrl_a
+//          auto state_it = std::find_if(
+//            cmd_itfs.begin(), cmd_itfs.end(),
+//            [ctrl_b](auto itf) { return (itf.find(ctrl_b.info.name) != std::string::npos); });
+//          if (it != cmd_itfs.end())
+//          {
+//            return false;
+//          }
+//        }
+//      }
+//      return false;
+//    }
+//  };
+//  RCLCPP_ERROR(this->get_logger(), "The controller list is");
+//  for(auto &ctrl : controller_list)
+//  {
+//    RCLCPP_ERROR(this->get_logger(), "\t%s", ctrl.info.name.c_str());
+//  }
+//  std::sort(controller_list.begin(), controller_list.end(), sorting_lambda);
+//  RCLCPP_ERROR(this->get_logger(), "Post sorting list is ");
+//  for(auto &ctrl : controller_list)
+//  {
+//    RCLCPP_ERROR(this->get_logger(), "\t%s", ctrl.info.name.c_str());
+//  }
+//  rt_controllers_wrapper_.switch_updated_list(guard);
+//  rt_controllers_wrapper_.get_unused_list(guard).clear();
+
   return controller_interface::return_type::OK;
 }
 
