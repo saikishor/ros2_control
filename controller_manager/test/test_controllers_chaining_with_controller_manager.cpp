@@ -124,6 +124,9 @@ public:
     pid_right_wheel_controller = std::make_shared<TestableTestChainableController>();
     diff_drive_controller = std::make_shared<TestableTestChainableController>();
     diff_drive_controller_two = std::make_shared<TestableTestChainableController>();
+    fwd_ctrl_1 = std::make_shared<TestableTestChainableController>();
+    fwd_ctrl_2 = std::make_shared<TestableTestChainableController>();
+    fwd_ctrl_3 = std::make_shared<TestableTestChainableController>();
     position_tracking_controller = std::make_shared<test_controller::TestController>();
 
     // configure Left Wheel controller
@@ -159,6 +162,36 @@ public:
     diff_drive_controller_two->set_command_interface_configuration(diff_drive_cmd_ifs_cfg);
     diff_drive_controller_two->set_state_interface_configuration(diff_drive_state_ifs_cfg);
     diff_drive_controller_two->set_reference_interface_names({"vel_x", "vel_y", "rot_z"});
+
+    // configure FWD Tracking controller
+    controller_interface::InterfaceConfiguration fwd_ctrl_1_ifs_cfg = {
+      controller_interface::interface_configuration_type::INDIVIDUAL,
+      {std::string(DIFF_DRIVE_CONTROLLER) + "/vel_x",
+       std::string(DIFF_DRIVE_CONTROLLER) + "/vel_y"}};
+    // in this simple example "vel_x" == "velocity left wheel" and "vel_y" == "velocity right wheel"
+    fwd_ctrl_1->set_command_interface_configuration(
+      fwd_ctrl_1_ifs_cfg);
+    fwd_ctrl_1->set_reference_interface_names({"vel_x", "vel_y"});
+
+    // configure FWD Tracking controller
+    controller_interface::InterfaceConfiguration fwd_ctrl_2_ifs_cfg = {
+      controller_interface::interface_configuration_type::INDIVIDUAL,
+      {std::string(PWD_CTRL_1) + "/vel_x",
+       std::string(PWD_CTRL_1) + "/vel_y"}};
+    // in this simple example "vel_x" == "velocity left wheel" and "vel_y" == "velocity right wheel"
+    fwd_ctrl_2->set_command_interface_configuration(
+      fwd_ctrl_2_ifs_cfg);
+    fwd_ctrl_2->set_reference_interface_names({"vel_x", "vel_y"});
+
+    // configure FWD Tracking controller
+    controller_interface::InterfaceConfiguration fwd_ctrl_3_ifs_cfg = {
+      controller_interface::interface_configuration_type::INDIVIDUAL,
+      {std::string(PWD_CTRL_2) + "/vel_x",
+       std::string(PWD_CTRL_2) + "/vel_y"}};
+    // in this simple example "vel_x" == "velocity left wheel" and "vel_y" == "velocity right wheel"
+    fwd_ctrl_3->set_command_interface_configuration(
+      fwd_ctrl_3_ifs_cfg);
+    fwd_ctrl_3->set_reference_interface_names({"vel_x", "vel_y"});
 
     // configure Position Tracking controller
     controller_interface::InterfaceConfiguration position_tracking_cmd_ifs_cfg = {
@@ -425,6 +458,9 @@ public:
   static constexpr char PID_LEFT_WHEEL[] = "pid_left_wheel_controller";
   static constexpr char PID_RIGHT_WHEEL[] = "pid_right_wheel_controller";
   static constexpr char DIFF_DRIVE_CONTROLLER[] = "diff_drive_controller";
+  static constexpr char PWD_CTRL_1[] = "fwd_ctrl_1";
+  static constexpr char PWD_CTRL_2[] = "fwd_ctrl_2";
+  static constexpr char PWD_CTRL_3[] = "fwd_ctrl_3";
   static constexpr char DIFF_DRIVE_CONTROLLER_TWO[] = "diff_drive_controller_two";
   static constexpr char POSITION_TRACKING_CONTROLLER[] = "position_tracking_controller";
 
@@ -434,6 +470,12 @@ public:
     "pid_right_wheel_controller/velocity"};
   const std::vector<std::string> DIFF_DRIVE_REFERENCE_INTERFACES = {
     "diff_drive_controller/vel_x", "diff_drive_controller/vel_y", "diff_drive_controller/rot_z"};
+  const std::vector<std::string> FWD1_REFERENCE_INTERFACES = {
+    "fwd_ctrl_1/vel_x", "fwd_ctrl_1/vel_y"};
+  const std::vector<std::string> FWD2_REFERENCE_INTERFACES = {
+    "fwd_ctrl_2/vel_x", "fwd_ctrl_2/vel_y"};
+  const std::vector<std::string> FWD3_REFERENCE_INTERFACES = {
+    "fwd_ctrl_3/vel_x", "fwd_ctrl_3/vel_y"};
 
   const std::vector<std::string> PID_LEFT_WHEEL_CLAIMED_INTERFACES = {"wheel_left/velocity"};
   const std::vector<std::string> PID_RIGHT_WHEEL_CLAIMED_INTERFACES = {"wheel_right/velocity"};
@@ -446,6 +488,9 @@ public:
   std::shared_ptr<TestableTestChainableController> pid_left_wheel_controller;
   std::shared_ptr<TestableTestChainableController> pid_right_wheel_controller;
   std::shared_ptr<TestableTestChainableController> diff_drive_controller;
+  std::shared_ptr<TestableTestChainableController> fwd_ctrl_1;
+  std::shared_ptr<TestableTestChainableController> fwd_ctrl_2;
+  std::shared_ptr<TestableTestChainableController> fwd_ctrl_3;
   std::shared_ptr<TestableTestChainableController> diff_drive_controller_two;
   std::shared_ptr<test_controller::TestController> position_tracking_controller;
 
@@ -994,12 +1039,26 @@ TEST_P(TestControllerChainingWithControllerManager, test_chained_controllers_add
     position_tracking_controller, POSITION_TRACKING_CONTROLLER,
     test_chainable_controller::TEST_CONTROLLER_CLASS_NAME);
   cm_->add_controller(
+    fwd_ctrl_3, PWD_CTRL_3,
+    test_chainable_controller::TEST_CONTROLLER_CLASS_NAME);
+  cm_->add_controller(
+    fwd_ctrl_2, PWD_CTRL_2,
+    test_chainable_controller::TEST_CONTROLLER_CLASS_NAME);
+  cm_->add_controller(
+    fwd_ctrl_1, PWD_CTRL_1,
+    test_chainable_controller::TEST_CONTROLLER_CLASS_NAME);
+  cm_->add_controller(
     diff_drive_controller, DIFF_DRIVE_CONTROLLER,
     test_chainable_controller::TEST_CONTROLLER_CLASS_NAME);
   cm_->add_controller(
     diff_drive_controller_two, DIFF_DRIVE_CONTROLLER_TWO,
     test_chainable_controller::TEST_CONTROLLER_CLASS_NAME);
 
+
+  cm_->configure_controller(PWD_CTRL_1);
+
+  cm_->configure_controller(PWD_CTRL_2);
+  cm_->configure_controller(PWD_CTRL_3);
   CheckIfControllersAreAddedCorrectly();
 
   ConfigureAndCheckControllers();
@@ -1010,6 +1069,12 @@ TEST_P(TestControllerChainingWithControllerManager, test_chained_controllers_add
     pid_right_wheel_controller, PID_RIGHT_WHEEL, PID_RIGHT_WHEEL_REFERENCE_INTERFACES);
   SetToChainedModeAndMakeReferenceInterfacesAvailable(
     diff_drive_controller, DIFF_DRIVE_CONTROLLER, DIFF_DRIVE_REFERENCE_INTERFACES);
+  SetToChainedModeAndMakeReferenceInterfacesAvailable(
+    fwd_ctrl_1, PWD_CTRL_1, FWD1_REFERENCE_INTERFACES);
+  SetToChainedModeAndMakeReferenceInterfacesAvailable(
+    fwd_ctrl_2, PWD_CTRL_2, FWD2_REFERENCE_INTERFACES);
+  SetToChainedModeAndMakeReferenceInterfacesAvailable(
+    fwd_ctrl_3, PWD_CTRL_3, FWD3_REFERENCE_INTERFACES);
 
   EXPECT_THROW(
     cm_->resource_manager_->make_controller_reference_interfaces_available(
@@ -1032,6 +1097,19 @@ TEST_P(TestControllerChainingWithControllerManager, test_chained_controllers_add
     diff_drive_controller, DIFF_DRIVE_CONTROLLER, DIFF_DRIVE_CLAIMED_INTERFACES, 1u);
   ASSERT_EQ(pid_right_wheel_controller->internal_counter, 3u);
   ASSERT_EQ(pid_left_wheel_controller->internal_counter, 5u);
+
+  switch_test_controllers(
+    {PWD_CTRL_3, PWD_CTRL_1, PWD_CTRL_2}, {}, test_param.strictness);
+  return;
+//  ActivateController(
+//    PWD_CTRL_1, controller_interface::return_type::OK,
+//    std::future_status::timeout);
+//  ActivateController(
+//    PWD_CTRL_2, controller_interface::return_type::OK,
+//    std::future_status::timeout);
+//  ActivateController(
+//    PWD_CTRL_3, controller_interface::return_type::OK,
+//    std::future_status::timeout);
 
   // Position-Tracking Controller uses reference interfaces of Diff-Drive Controller
   ActivateAndCheckController(

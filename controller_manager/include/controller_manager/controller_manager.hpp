@@ -407,7 +407,8 @@ private:
    *
    * @return true, if ctrl_a needs to execute first, else false
    */
-  bool controller_sorting(const ControllerSpec & ctrl_a, const ControllerSpec & ctrl_b);
+  bool controller_sorting(const ControllerSpec & ctrl_a, const ControllerSpec & ctrl_b,
+                          const std::vector<controller_manager::ControllerSpec> & controllers);
 
   void controller_activity_diagnostic_callback(diagnostic_updater::DiagnosticStatusWrapper & stat);
   diagnostic_updater::Updater diagnostics_updater_;

@@ -101,21 +101,57 @@ bool command_interface_is_reference_interface_of_controller(
     controllers.begin(), controllers.end(),
     std::bind(controller_name_compare, std::placeholders::_1, interface_prefix));
 
-  RCLCPP_DEBUG(
-    rclcpp::get_logger("ControllerManager::utils"),
-    "Deduced interface prefix '%s' - searching for the controller with the same name.",
-    interface_prefix.c_str());
+//  RCLCPP_DEBUG(
+//    rclcpp::get_logger("ControllerManager::utils"),
+//    "Deduced interface prefix '%s' - searching for the controller with the same name.",
+//    interface_prefix.c_str());
 
   if (following_controller_it == controllers.end())
   {
-    RCLCPP_DEBUG(
-      rclcpp::get_logger("ControllerManager::utils"),
-      "Required command interface '%s' with prefix '%s' is not reference interface.",
-      interface_name.c_str(), interface_prefix.c_str());
+//    RCLCPP_DEBUG(
+//      rclcpp::get_logger("ControllerManager::utils"),
+//      "Required command interface '%s' with prefix '%s' is not reference interface.",
+//      interface_name.c_str(), interface_prefix.c_str());
 
     return false;
   }
   return true;
+}
+
+std::vector<std::string> get_following_controller_names(
+  const std::string controller_name,
+  const std::vector<controller_manager::ControllerSpec> & controllers)
+{
+  std::vector<std::string> following_controllers;
+  auto controller_it = std::find_if(
+    controllers.begin(), controllers.end(),
+    std::bind(controller_name_compare, std::placeholders::_1, controller_name));
+  if (controller_it == controllers.end())
+  {
+//    RCLCPP_DEBUG(
+//      rclcpp::get_logger("ControllerManager::utils"),
+//      "Required controller : '%s' is not found in the controller list ",
+//      controller_name.c_str());
+
+    return following_controllers;
+  }
+  auto cmd_itfs = controller_it->c->command_interface_configuration().names;
+  for(const auto &itf : cmd_itfs)
+  {
+    RCLCPP_DEBUG(rclcpp::get_logger("ControllerManager::utils"),
+    "Checking command interface : %s, of the controller : %s", itf.c_str(), controller_name.c_str());
+
+    controller_manager::ControllersListIterator ctrl_it;
+    if(command_interface_is_reference_interface_of_controller(itf, controllers,ctrl_it))
+    {
+      RCLCPP_DEBUG(rclcpp::get_logger("ControllerManager::utils"),
+      "The interface is a reference interface of controller : %s", ctrl_it->info.name.c_str());
+      following_controllers.push_back(ctrl_it->info.name);
+      auto ctrl_names = get_following_controller_names(ctrl_it->info.name, controllers);
+      following_controllers.insert(following_controllers.begin(), ctrl_names.begin(), ctrl_names.end());
+    }
+  }
+  return following_controllers;
 }
 
 }  // namespace
@@ -1039,7 +1075,12 @@ controller_interface::return_type ControllerManager::switch_controller(
   std::sort(
     to.begin(), to.end(),
     std::bind(
-      &ControllerManager::controller_sorting, this, std::placeholders::_1, std::placeholders::_2));
+      &ControllerManager::controller_sorting, this, std::placeholders::_1, std::placeholders::_2, to));
+
+  for(const auto &ctrl: to)
+  {
+    RCLCPP_ERROR_STREAM(this->get_logger(), "\t " << ctrl.info.name << " - " << is_controller_active(ctrl.c));
+  }
 
   // switch lists
   rt_controllers_wrapper_.switch_updated_list(guard);
@@ -2202,10 +2243,18 @@ controller_interface::return_type ControllerManager::check_preceeding_controller
 }
 
 bool ControllerManager::controller_sorting(
-  const ControllerSpec & ctrl_a, const ControllerSpec & ctrl_b)
+  const ControllerSpec & ctrl_a, const ControllerSpec & ctrl_b,
+  const std::vector<controller_manager::ControllerSpec> & controllers)
 {
+  RCLCPP_ERROR(this->get_logger(), "Main controller is %s and seond is %s", ctrl_a.info.name.c_str(), ctrl_b.info.name.c_str());
   // If the controllers are not active, then go to the end of the list
-  if (!is_controller_active(ctrl_a.c) || !is_controller_active(ctrl_b.c)) return false;
+  if (!is_controller_active(ctrl_a.c) || !is_controller_active(ctrl_b.c))
+  {
+    if(is_controller_active(ctrl_a.c))
+      return true;
+    return false;
+  }
+//  RCLCPP_ERROR(this->get_logger(), "Setup done");
 
   const std::vector<std::string> cmd_itfs = ctrl_a.c->command_interface_configuration().names;
   const std::vector<std::string> state_itfs = ctrl_a.c->state_interface_configuration().names;
@@ -2217,6 +2266,11 @@ bool ControllerManager::controller_sorting(
   }
   else
   {
+    std::lock_guard<std::recursive_mutex> guard(rt_controllers_wrapper_.controllers_lock_);
+    const std::vector<ControllerSpec> & controllers = rt_controllers_wrapper_.get_updated_list(guard);
+    auto following_ctrls = get_following_controller_names(ctrl_a.info.name, controllers);
+    for(auto ctrl: following_ctrls)
+      RCLCPP_ERROR(this->get_logger(), "\t\t%s", ctrl.c_str());
     if (ctrl_b.c->is_chainable())
     {
       // If the ctrl_a's command interface is the one exported by the ctrl_b then ctrl_a should be
@@ -2241,6 +2295,10 @@ bool ControllerManager::controller_sorting(
         }
       }
     }
+    if(std::find(following_ctrls.begin(), following_ctrls.end(), ctrl_b.info.name) != following_ctrls.end())
+      return true;
+    else
+      return false;
     // The rest of the cases, basically end up at the end of the list
     return false;
   }
