@@ -2335,7 +2335,27 @@ bool ControllerManager::controller_sorting(
     if(std::find(following_ctrls.begin(), following_ctrls.end(), ctrl_b.info.name) != following_ctrls.end())
       return true;
     else
+    {
+      auto ctrl_a_preceding_ctrls = get_preceding_controller_names(ctrl_a.info.name, controllers);
+      if(std::find(ctrl_a_preceding_ctrls.begin(), ctrl_a_preceding_ctrls.end(), ctrl_b.info.name) != ctrl_a_preceding_ctrls.end())
+      {
+        return false;
+      }
+      auto ctrl_b_preceding_ctrls = get_preceding_controller_names(ctrl_b.info.name, controllers);
+      std::sort(ctrl_a_preceding_ctrls.begin(), ctrl_a_preceding_ctrls.end());
+      std::sort(ctrl_b_preceding_ctrls.begin(), ctrl_b_preceding_ctrls.end());
+      std::list<std::string> intersection;
+
+      std::set_intersection(ctrl_a_preceding_ctrls.begin(), ctrl_a_preceding_ctrls.end(),
+                            ctrl_b_preceding_ctrls.begin(), ctrl_b_preceding_ctrls.end(),
+                            std::back_inserter(intersection));
+      if(!intersection.empty())
+      {
+        RCLCPP_ERROR(this->get_logger(), "\t there seem to be a common parent!");
+        return true;
+      }
       return false;
+    }
     // The rest of the cases, basically end up at the end of the list
     return false;
   }
