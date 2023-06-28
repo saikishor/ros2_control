@@ -174,7 +174,7 @@ public:
   void SetUpSrvsCMExecutor()
   {
     update_timer_ = cm_->create_wall_timer(
-      std::chrono::milliseconds(10),
+      std::chrono::milliseconds(20),
       [&]()
       {
         cm_->read(TIME, PERIOD);
