@@ -71,8 +71,8 @@ bool controller_name_compare(const controller_manager::ControllerSpec & a, const
 /// Checks if an interface belongs to a controller based on its prefix.
 /**
  * A State/Command interface can be provided by a controller in which case is called
- * "state/reference" interface. This means that the @interface_name starts with the name of a
- * controller.
+ * "internal state/reference" interface. This means that the @interface_name starts with the name of
+ * a controller.
  *
  * \param[in] interface_name to be found in the map.
  * \param[in] controllers list of controllers to compare their names to interface's prefix.
@@ -139,7 +139,7 @@ bool is_interface_exported_from_controller(
     return false;
 }
 
-bool is_controller_exported_state_interfaces_inuse_by_other_controllers(
+bool is_controller_internal_state_interfaces_inuse_by_other_controllers(
   const std::string & controller_name,
   const std::vector<controller_manager::ControllerSpec> & controllers,
   std::vector<std::string> blacklist)
@@ -155,8 +155,8 @@ bool is_controller_exported_state_interfaces_inuse_by_other_controllers(
     {
       continue;
     }
-    auto controller_exported_state_interfaces = controller.c->state_interface_configuration().names;
-    for (const auto & ctrl_itf_name : controller_exported_state_interfaces)
+    auto controller_internal_state_interfaces = controller.c->state_interface_configuration().names;
+    for (const auto & ctrl_itf_name : controller_internal_state_interfaces)
     {
       if (is_interface_exported_from_controller(ctrl_itf_name, controller_name))
       {
@@ -677,20 +677,21 @@ controller_interface::return_type ControllerManager::configure_controller(
       get_logger(),
       "Controller '%s' is chainable. Interfaces are being exported to resource manager.",
       controller_name.c_str());
-    auto state_interfaces = controller->export_state_interfaces();
+    auto internal_state_interfaces = controller->export_internal_state_interfaces();
     auto ref_interfaces = controller->export_reference_interfaces();
-    if (ref_interfaces.empty() && state_interfaces.empty())
+    if (ref_interfaces.empty() && internal_state_interfaces.empty())
     {
       // TODO(destogl): Add test for this!
       RCLCPP_ERROR(
         get_logger(),
-        "Controller '%s' is chainable, but does not export any state or reference interfaces.",
+        "Controller '%s' is chainable, but does not export any internal state or reference "
+        "interfaces.",
         controller_name.c_str());
       return controller_interface::return_type::ERROR;
     }
     resource_manager_->import_controller_reference_interfaces(controller_name, ref_interfaces);
-    resource_manager_->import_controller_exported_state_interfaces(
-      controller_name, state_interfaces);
+    resource_manager_->import_controller_internal_state_interfaces(
+      controller_name, internal_state_interfaces);
     // TODO(destogl): check and resort controllers in the vector
   }
 
@@ -1335,14 +1336,14 @@ void ControllerManager::switch_chained_mode(
           // enable references from the controller interfaces
           controller->toggle_references_from_subscribers(false);
           // make all the exported interfaces of the controller available
-          resource_manager_->make_controller_exported_state_interfaces_available(request);
+          resource_manager_->make_controller_internal_state_interfaces_available(request);
           resource_manager_->make_controller_reference_interfaces_available(request);
         }
         else
         {
-          // the release of exported state interfaces and the reference interfaces  of the
-          // controller is handled by the to_use_references_from_subscribers_ list
-          resource_manager_->make_controller_exported_state_interfaces_unavailable(request);
+          // release internal state interfaces of the controller and the release of reference
+          // interfaces is handled by the to_use_references_from_subscribers_ list
+          resource_manager_->make_controller_internal_state_interfaces_unavailable(request);
         }
       }
       else
@@ -1567,18 +1568,18 @@ void ControllerManager::list_controllers_srv_cb(
           controller_chain_interface_map[controller_state.name].push_back(interface_type);
         }
       }
-      // check state and reference interfaces only if controller is inactive or active
+      // check internal state and reference interfaces only if controller is inactive or active
       auto references = controllers[i].c->export_reference_interfaces();
-      auto state_interfaces = controllers[i].c->export_state_interfaces();
+      auto internal_state_interfaces = controllers[i].c->export_internal_state_interfaces();
       controller_state.reference_interfaces.reserve(references.size());
-      controller_state.exported_state_interfaces.reserve(state_interfaces.size());
+      controller_state.internal_state_interfaces.reserve(internal_state_interfaces.size());
       for (const auto & reference : references)
       {
         controller_state.reference_interfaces.push_back(reference.get_interface_name());
       }
-      for (const auto & state : state_interfaces)
+      for (const auto & state : internal_state_interfaces)
       {
-        controller_state.exported_state_interfaces.push_back(state.get_interface_name());
+        controller_state.internal_state_interfaces.push_back(state.get_interface_name());
       }
     }
     response->controller.push_back(controller_state);
@@ -2131,9 +2132,9 @@ void ControllerManager::propagate_deactivation_of_chained_mode(
         ControllersListIterator following_ctrl_it;
         if (is_interface_a_chained_interface(ctrl_itf_name, controllers, following_ctrl_it))
         {
-          // If the preceding controller's state interfaces are in use by other controllers,
-          // then maintain the chained mode
-          if (is_controller_exported_state_interfaces_inuse_by_other_controllers(
+          // If the preceding controller's internal state interfaces are in use by other
+          // controllers, then maintain the chained mode
+          if (is_controller_internal_state_interfaces_inuse_by_other_controllers(
                 following_ctrl_it->info.name, controllers, deactivate_request_))
           {
             auto found_it = std::find(
@@ -2211,8 +2212,8 @@ controller_interface::return_type ControllerManager::check_following_controllers
     {
       RCLCPP_WARN(
         get_logger(),
-        "No state/reference interface '%s' exist, since the following controller with name "
-        "'%s' is not chainable.",
+        "No internal state/reference interface '%s' exist, since the following controller with "
+        "name '%s' is not chainable.",
         ctrl_itf_name.c_str(), following_ctrl_it->info.name.c_str());
       return controller_interface::return_type::ERROR;
     }
@@ -2330,9 +2331,9 @@ controller_interface::return_type ControllerManager::check_preceeding_controller
 
   const auto ctrl_ref_itfs =
     resource_manager_->get_controller_reference_interface_names(controller_it->info.name);
-  const auto ctrl_exp_state_itfs =
-    resource_manager_->get_controller_exported_state_interface_names(controller_it->info.name);
-  for (const auto & controller_interfaces : {ctrl_ref_itfs, ctrl_exp_state_itfs})
+  const auto ctrl_int_state_itfs =
+    resource_manager_->get_controller_internal_state_interface_names(controller_it->info.name);
+  for (const auto & controller_interfaces : {ctrl_ref_itfs, ctrl_int_state_itfs})
   {
     for (const auto & ref_itf_name : controller_interfaces)
     {
