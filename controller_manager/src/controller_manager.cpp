@@ -224,6 +224,30 @@ std::vector<std::string> get_following_controller_names(
       }
     }
   }
+  for (const auto & ctrl : controllers)
+  {
+    // If the controller is not configured, then continue
+    if (!(is_controller_active(ctrl.c) || is_controller_inactive(ctrl.c))) continue;
+    auto cmd_itfs = ctrl.c->state_interface_configuration().names;
+    for (const auto & itf : cmd_itfs)
+    {
+      if (itf.find(controller_name) != std::string::npos)
+      {
+        following_controllers.push_back(ctrl.info.name);
+        auto ctrl_names = get_following_controller_names(ctrl.info.name, controllers);
+        for (const std::string & controller : ctrl_names)
+        {
+          if (
+            std::find(following_controllers.begin(), following_controllers.end(), controller) ==
+            following_controllers.end())
+          {
+            // Only add to the list if it doesn't exist
+            following_controllers.push_back(controller);
+          }
+        }
+      }
+    }
+  }
   return following_controllers;
 }
 
@@ -256,11 +280,13 @@ std::vector<std::string> get_preceding_controller_names(
       "Required controller : '%s' is not found in the controller list ", controller_name.c_str());
     return preceding_controllers;
   }
+  // If the controller is not configured, return empty
+  if (!(is_controller_active(controller_it->c) || is_controller_inactive(controller_it->c)))
+    return preceding_controllers;
   for (const auto & ctrl : controllers)
   {
-    // If the controller is not configured, return empty
-    if (!(is_controller_active(ctrl.c) || is_controller_inactive(ctrl.c)))
-      return preceding_controllers;
+    // If the controller is not configured, then continue
+    if (!(is_controller_active(ctrl.c) || is_controller_inactive(ctrl.c))) continue;
     auto cmd_itfs = ctrl.c->command_interface_configuration().names;
     for (const auto & itf : cmd_itfs)
     {
@@ -277,6 +303,31 @@ std::vector<std::string> get_preceding_controller_names(
             // Only add to the list if it doesn't exist
             preceding_controllers.push_back(controller);
           }
+        }
+      }
+    }
+  }
+  const auto cmd_itfs = controller_it->c->state_interface_configuration().names;
+  for (const auto & itf : cmd_itfs)
+  {
+    controller_manager::ControllersListIterator ctrl_it;
+    if (is_interface_a_chained_interface(itf, controllers, ctrl_it))
+    {
+      RCLCPP_DEBUG(
+        rclcpp::get_logger("ControllerManager::utils"),
+        "The interface is a internal state interface of controller : %s",
+        ctrl_it->info.name.c_str());
+      preceding_controllers.push_back(ctrl_it->info.name);
+      const std::vector<std::string> ctrl_names =
+        get_preceding_controller_names(ctrl_it->info.name, controllers);
+      for (const std::string & controller : ctrl_names)
+      {
+        if (
+          std::find(preceding_controllers.begin(), preceding_controllers.end(), controller) ==
+          preceding_controllers.end())
+        {
+          // Only add to the list if it doesn't exist
+          preceding_controllers.push_back(controller);
         }
       }
     }
@@ -2573,10 +2624,11 @@ bool ControllerManager::controller_sorting(
 
   const std::vector<std::string> cmd_itfs = ctrl_a.c->command_interface_configuration().names;
   const std::vector<std::string> state_itfs = ctrl_a.c->state_interface_configuration().names;
-  if (cmd_itfs.empty() || !ctrl_a.c->is_chainable())
+  if (cmd_itfs.empty() && !ctrl_a.c->is_chainable())
   {
     // The case of the controllers that don't have any command interfaces. For instance,
-    // joint_state_broadcaster
+    // joint_state_broadcaster. It is also needed to make sure that it is not chainable, because the
+    // controllers that export their internal state are handled later
     return true;
   }
   else
