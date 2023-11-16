@@ -787,10 +787,10 @@ controller_interface::return_type ControllerManager::configure_controller(
       &ControllerManager::controller_sorting, this, std::placeholders::_1, std::placeholders::_2,
       to));
 
-  RCLCPP_DEBUG(get_logger(), "Reordered controllers list is:");
+  RCLCPP_ERROR(get_logger(), "Reordered controllers list is:");
   for (const auto & ctrl : to)
   {
-    RCLCPP_DEBUG(this->get_logger(), "\t%s", ctrl.info.name.c_str());
+    RCLCPP_ERROR(this->get_logger(), "\t%s", ctrl.info.name.c_str());
   }
 
   // switch lists
@@ -2032,6 +2032,7 @@ void ControllerManager::read(const rclcpp::Time & time, const rclcpp::Duration &
 controller_interface::return_type ControllerManager::update(
   const rclcpp::Time & time, const rclcpp::Duration & period)
 {
+  //  RCLCPP_ERROR(get_logger(), "sTART of update");
   std::vector<ControllerSpec> & rt_controller_list =
     rt_controllers_wrapper_.update_and_get_used_by_rt_list();
 
@@ -2082,6 +2083,7 @@ controller_interface::return_type ControllerManager::update(
       }
     }
   }
+  //  RCLCPP_ERROR(get_logger(), "End of update");
 
   // there are controllers to (de)activate
   if (switch_params_.do_switch)
@@ -2443,8 +2445,19 @@ bool ControllerManager::controller_sorting(
   const ControllerSpec & ctrl_a, const ControllerSpec & ctrl_b,
   const std::vector<controller_manager::ControllerSpec> & controllers)
 {
+  if (ctrl_a.info.name.compare(ctrl_b.info.name) == 0)
+  {
+    RCLCPP_ERROR(
+      this->get_logger(), "The same controller : %s is passed returning false",
+      ctrl_b.info.name.c_str());
+    return false;
+  }
+  RCLCPP_ERROR(this->get_logger(), "The ctrl_a is : %s", ctrl_a.info.name.c_str());
+  RCLCPP_ERROR(this->get_logger(), "The ctrl_b is : %s", ctrl_b.info.name.c_str());
   // If the neither of the controllers are configured, then return false
-  if (!((is_controller_active(ctrl_a.c) || is_controller_inactive(ctrl_a.c)) &&
+  if (!(ctrl_a.c->get_node() &&
+        (is_controller_active(ctrl_a.c) || is_controller_inactive(ctrl_a.c)) &&
+        ctrl_b.c->get_node() &&
         (is_controller_active(ctrl_b.c) || is_controller_inactive(ctrl_b.c))))
   {
     if (is_controller_active(ctrl_a.c) || is_controller_inactive(ctrl_a.c)) return true;
@@ -2457,6 +2470,18 @@ bool ControllerManager::controller_sorting(
   {
     // The case of the controllers that don't have any command interfaces. For instance,
     // joint_state_broadcaster
+    if (ctrl_b.c->command_interface_configuration().names.empty() || !ctrl_b.c->is_chainable())
+    {
+      RCLCPP_ERROR(this->get_logger(), "Checking the main condition for the broadcaster");
+      auto ctrl_a_it = std::find_if(
+        controllers.begin(), controllers.end(),
+        std::bind(controller_name_compare, std::placeholders::_1, ctrl_a.info.name));
+      auto ctrl_b_it = std::find_if(
+        controllers.begin(), controllers.end(),
+        std::bind(controller_name_compare, std::placeholders::_1, ctrl_b.info.name));
+      return std::distance(controllers.begin(), ctrl_a_it) >
+             std::distance(controllers.begin(), ctrl_b_it);
+    }
     return true;
   }
   else
