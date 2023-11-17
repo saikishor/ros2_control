@@ -1178,8 +1178,8 @@ TEST_F(TestControllerManagerSrvs, list_large_number_of_controllers_With_chains)
   test_chained_controller_9->set_command_interface_configuration(chained_cmd_cfg);
   test_chained_controller_9->set_state_interface_configuration(state_cfg);
 
-  unsigned int num_of_random_broadcasters = 40;
-  unsigned int num_of_random_controllers = 20;
+  unsigned int num_of_random_broadcasters = 50;
+  unsigned int num_of_random_controllers = 50;
   std::vector<std::string> chained_ref_interfaces;
   for (size_t i = 0; i < num_of_random_controllers; i++)
   {
@@ -1237,10 +1237,14 @@ TEST_F(TestControllerManagerSrvs, list_large_number_of_controllers_With_chains)
     test_chained_controller_8, TEST_CHAINED_CONTROLLER_8,
     test_chainable_controller::TEST_CONTROLLER_CLASS_NAME);
 
-  for (auto random_ctrl : random_controllers_list)
   {
-    cm_->add_controller(
-      random_ctrl.second, random_ctrl.first, test_chainable_controller::TEST_CONTROLLER_CLASS_NAME);
+    ControllerManagerRunner cm_runner(this);
+    for (auto random_ctrl : random_controllers_list)
+    {
+      cm_->add_controller(
+        random_ctrl.second, random_ctrl.first,
+        test_chainable_controller::TEST_CONTROLLER_CLASS_NAME);
+    }
   }
 
   // get controller list before configure
