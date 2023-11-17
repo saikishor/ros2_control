@@ -1171,11 +1171,11 @@ TEST_F(TestControllerManagerSrvs, list_large_number_of_controllers_With_chains)
   test_chained_controller_8->set_state_interface_configuration(chained_state_cfg);
   test_chained_controller_8->set_reference_interface_names({"joint3/velocity"});
 
-  unsigned int num_of_random_controllers = 30;
+  unsigned int num_of_random_controllers = 60;
   std::map<std::string, std::shared_ptr<TestController>> random_controllers_list;
   for (size_t i = 0; i < num_of_random_controllers; i++)
   {
-    auto controller_name = "test_controller_name_" + std::to_string(i + 3);
+    auto controller_name = "test_broadcaster_" + std::to_string(i + 3);
     RCLCPP_ERROR(srv_node->get_logger(), "Initializing controller : %s !", controller_name.c_str());
     random_controllers_list[controller_name] = std::make_shared<TestController>();
     random_controllers_list[controller_name]->set_state_interface_configuration(state_cfg);
