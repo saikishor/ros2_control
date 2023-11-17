@@ -1246,15 +1246,12 @@ TEST_F(TestControllerManagerSrvs, list_large_number_of_controllers_With_chains)
     ControllerManagerRunner cm_runner(this);
     for (const auto & controller : ctrls_order)
     {
-      RCLCPP_ERROR(srv_node->get_logger(), "Starting configuring controller : %s !", controller);
       cm_->configure_controller(controller);
-      //      cm_->update(time_, rclcpp::Duration::from_seconds(0.01));
     }
 
     for (auto random_ctrl : random_controllers_list)
     {
       cm_->configure_controller(random_ctrl.first);
-      //      cm_->update(time_, rclcpp::Duration::from_seconds(0.01));
     }
   }
 

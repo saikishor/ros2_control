@@ -2445,31 +2445,16 @@ bool ControllerManager::controller_sorting(
   const ControllerSpec & ctrl_a, const ControllerSpec & ctrl_b,
   const std::vector<controller_manager::ControllerSpec> & controllers)
 {
-  if (ctrl_a.info.name.compare(ctrl_b.info.name) == 0)
-  {
-    RCLCPP_ERROR(
-      this->get_logger(), "The same controller : %s is passed returning false",
-      ctrl_b.info.name.c_str());
-    return false;
-  }
-  RCLCPP_ERROR(this->get_logger(), "The ctrl_a is : %s", ctrl_a.info.name.c_str());
-  RCLCPP_ERROR(this->get_logger(), "The ctrl_b is : %s", ctrl_b.info.name.c_str());
   // If the neither of the controllers are configured, then return false
   if (!((is_controller_active(ctrl_a.c) || is_controller_inactive(ctrl_a.c)) &&
         (is_controller_active(ctrl_b.c) || is_controller_inactive(ctrl_b.c))))
   {
-    //    if (is_controller_active(ctrl_a.c) || is_controller_inactive(ctrl_a.c)) return true;
     auto ctrl_a_it = std::find_if(
       controllers.begin(), controllers.end(),
       std::bind(controller_name_compare, std::placeholders::_1, ctrl_a.info.name));
     auto ctrl_b_it = std::find_if(
       controllers.begin(), controllers.end(),
       std::bind(controller_name_compare, std::placeholders::_1, ctrl_b.info.name));
-
-    RCLCPP_ERROR_STREAM(
-      this->get_logger(), "Both are unconfigured for the broadcaster : "
-                            << (std::distance(controllers.begin(), ctrl_a_it) >
-                                std::distance(controllers.begin(), ctrl_b_it)));
     return std::distance(controllers.begin(), ctrl_a_it) >
            std::distance(controllers.begin(), ctrl_b_it);
   }
@@ -2488,11 +2473,6 @@ bool ControllerManager::controller_sorting(
       auto ctrl_b_it = std::find_if(
         controllers.begin(), controllers.end(),
         std::bind(controller_name_compare, std::placeholders::_1, ctrl_b.info.name));
-
-      RCLCPP_ERROR_STREAM(
-        this->get_logger(), "Checking the main condition for the broadcaster : "
-                              << (std::distance(controllers.begin(), ctrl_a_it) >
-                                  std::distance(controllers.begin(), ctrl_b_it)));
       return std::distance(controllers.begin(), ctrl_a_it) >
              std::distance(controllers.begin(), ctrl_b_it);
     }
