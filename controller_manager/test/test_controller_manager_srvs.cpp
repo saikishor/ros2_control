@@ -1242,29 +1242,25 @@ TEST_F(TestControllerManagerSrvs, list_large_number_of_controllers_With_chains)
                       TEST_CHAINED_CONTROLLER_4, TEST_CONTROLLER_2,
                       TEST_CHAINED_CONTROLLER_2, TEST_CHAINED_CONTROLLER_6,
                       TEST_CHAINED_CONTROLLER_7, TEST_CHAINED_CONTROLLER_8};
-  for (const auto & controller : ctrls_order)
   {
-    cm_->configure_controller(controller);
-    cm_->update(time_, rclcpp::Duration::from_seconds(0.01));
+    ControllerManagerRunner cm_runner(this);
+    for (const auto & controller : ctrls_order)
+    {
+      RCLCPP_ERROR(srv_node->get_logger(), "Starting configuring controller : %s !", controller);
+      cm_->configure_controller(controller);
+      //      cm_->update(time_, rclcpp::Duration::from_seconds(0.01));
+    }
+
+    for (auto random_ctrl : random_controllers_list)
+    {
+      cm_->configure_controller(random_ctrl.first);
+      //      cm_->update(time_, rclcpp::Duration::from_seconds(0.01));
+    }
   }
 
   // get controller list after configure
   result = call_service_and_wait(*client, request, srv_executor);
   ASSERT_EQ(10u + num_of_random_controllers, result->controller.size());
-
-  size_t x = 0;
-  for (auto random_ctrl : random_controllers_list)
-  {
-    RCLCPP_ERROR(srv_node->get_logger(), "Configure controller : %s !", random_ctrl.first.c_str());
-    RCLCPP_ERROR(
-      srv_node->get_logger(), "Configure controller : %d !", random_ctrl.second->get_state().id());
-    cm_->configure_controller(random_ctrl.first);
-    cm_->update(time_, rclcpp::Duration::from_seconds(0.01));
-    RCLCPP_ERROR(
-      srv_node->get_logger(), "Configure controller : %d !", random_ctrl.second->get_state().id());
-    x++;
-    //    if (x == 2) break;
-  }
 
   auto get_ctrl_pos = [result](const std::string & controller_name) -> int
   {

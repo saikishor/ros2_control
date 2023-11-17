@@ -2455,12 +2455,10 @@ bool ControllerManager::controller_sorting(
   RCLCPP_ERROR(this->get_logger(), "The ctrl_a is : %s", ctrl_a.info.name.c_str());
   RCLCPP_ERROR(this->get_logger(), "The ctrl_b is : %s", ctrl_b.info.name.c_str());
   // If the neither of the controllers are configured, then return false
-  if (!(ctrl_a.c->get_node() &&
-        (is_controller_active(ctrl_a.c) || is_controller_inactive(ctrl_a.c)) &&
-        ctrl_b.c->get_node() &&
+  if (!((is_controller_active(ctrl_a.c) || is_controller_inactive(ctrl_a.c)) &&
         (is_controller_active(ctrl_b.c) || is_controller_inactive(ctrl_b.c))))
   {
-    if (is_controller_active(ctrl_a.c) || is_controller_inactive(ctrl_a.c)) return true;
+    //    if (is_controller_active(ctrl_a.c) || is_controller_inactive(ctrl_a.c)) return true;
     auto ctrl_a_it = std::find_if(
       controllers.begin(), controllers.end(),
       std::bind(controller_name_compare, std::placeholders::_1, ctrl_a.info.name));
