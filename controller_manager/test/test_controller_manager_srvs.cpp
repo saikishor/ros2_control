@@ -1082,6 +1082,7 @@ TEST_F(TestControllerManagerSrvs, list_large_number_of_controllers_With_chains)
   static constexpr char TEST_CHAINED_CONTROLLER_6[] = "test_chainable_controller_name_6";
   static constexpr char TEST_CHAINED_CONTROLLER_7[] = "test_chainable_controller_name_7";
   static constexpr char TEST_CHAINED_CONTROLLER_8[] = "test_chainable_controller_name_8";
+  static constexpr char TEST_CHAINED_CONTROLLER_9[] = "test_chainable_controller_name_9";
   static constexpr char TEST_CONTROLLER_1[] = "test_controller_name_1";
   static constexpr char TEST_CONTROLLER_2[] = "test_controller_name_2";
 
@@ -1171,14 +1172,37 @@ TEST_F(TestControllerManagerSrvs, list_large_number_of_controllers_With_chains)
   test_chained_controller_8->set_state_interface_configuration(chained_state_cfg);
   test_chained_controller_8->set_reference_interface_names({"joint3/velocity"});
 
-  unsigned int num_of_random_controllers = 60;
-  std::map<std::string, std::shared_ptr<TestController>> random_controllers_list;
+  auto test_chained_controller_9 = std::make_shared<TestChainableController>();
+  cmd_cfg = {
+    controller_interface::interface_configuration_type::INDIVIDUAL, {"joint2/max_acceleration"}};
+  test_chained_controller_9->set_command_interface_configuration(chained_cmd_cfg);
+  test_chained_controller_9->set_state_interface_configuration(state_cfg);
+
+  unsigned int num_of_random_broadcasters = 40;
+  unsigned int num_of_random_controllers = 20;
+  std::vector<std::string> chained_ref_interfaces;
   for (size_t i = 0; i < num_of_random_controllers; i++)
   {
-    auto controller_name = "test_broadcaster_" + std::to_string(i + 3);
+    chained_ref_interfaces.push_back("ref_" + std::to_string(i) + "/joint_2/acceleration");
+  }
+  test_chained_controller_9->set_reference_interface_names(chained_ref_interfaces);
+  std::map<std::string, std::shared_ptr<TestController>> random_controllers_list;
+  for (size_t i = 0; i < num_of_random_broadcasters; i++)
+  {
+    auto controller_name = "test_broadcaster_" + std::to_string(i);
+    random_controllers_list[controller_name] = std::make_shared<TestController>();
+    random_controllers_list[controller_name]->set_state_interface_configuration(state_cfg);
+  }
+  for (size_t i = 0; i < num_of_random_controllers; i++)
+  {
+    auto controller_name = "test_random_controllers_" + std::to_string(i);
     RCLCPP_ERROR(srv_node->get_logger(), "Initializing controller : %s !", controller_name.c_str());
     random_controllers_list[controller_name] = std::make_shared<TestController>();
     random_controllers_list[controller_name]->set_state_interface_configuration(state_cfg);
+    random_controllers_list[controller_name]->set_command_interface_configuration(
+      {controller_interface::interface_configuration_type::INDIVIDUAL,
+       {std::string(TEST_CHAINED_CONTROLLER_9) + std::string("/ref_") + std::to_string(i) +
+        std::string("/joint_2/acceleration")}});
   }
 
   // add controllers
@@ -1223,7 +1247,8 @@ TEST_F(TestControllerManagerSrvs, list_large_number_of_controllers_With_chains)
   auto result = call_service_and_wait(*client, request, srv_executor);
 
   // check chainable controller
-  ASSERT_EQ(10u + num_of_random_controllers, result->controller.size());
+  ASSERT_EQ(
+    10u + num_of_random_broadcasters + num_of_random_controllers, result->controller.size());
   EXPECT_EQ(result->controller[0].name, TEST_CHAINED_CONTROLLER_2);
   EXPECT_EQ(result->controller[1].name, TEST_CHAINED_CONTROLLER_6);
   EXPECT_EQ(result->controller[2].name, TEST_CHAINED_CONTROLLER_1);
@@ -1257,7 +1282,8 @@ TEST_F(TestControllerManagerSrvs, list_large_number_of_controllers_With_chains)
 
   // get controller list after configure
   result = call_service_and_wait(*client, request, srv_executor);
-  ASSERT_EQ(10u + num_of_random_controllers, result->controller.size());
+  ASSERT_EQ(
+    10u + num_of_random_broadcasters + num_of_random_controllers, result->controller.size());
 
   auto get_ctrl_pos = [result](const std::string & controller_name) -> int
   {
