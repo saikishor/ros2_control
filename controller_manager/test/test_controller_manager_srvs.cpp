@@ -1178,15 +1178,15 @@ TEST_F(TestControllerManagerSrvs, list_large_number_of_controllers_With_chains)
   test_chained_controller_9->set_command_interface_configuration(chained_cmd_cfg);
   test_chained_controller_9->set_state_interface_configuration(state_cfg);
 
-  unsigned int num_of_random_broadcasters = 50;
-  unsigned int num_of_random_controllers = 50;
+  unsigned int num_of_random_broadcasters = 100;
+  unsigned int num_of_random_controllers = 100;
   std::vector<std::string> chained_ref_interfaces;
   for (size_t i = 0; i < num_of_random_controllers; i++)
   {
     chained_ref_interfaces.push_back("ref_" + std::to_string(i) + "/joint_2/acceleration");
   }
   test_chained_controller_9->set_reference_interface_names(chained_ref_interfaces);
-  std::map<std::string, std::shared_ptr<TestController>> random_controllers_list;
+  std::unordered_map<std::string, std::shared_ptr<TestController>> random_controllers_list;
   for (size_t i = 0; i < num_of_random_broadcasters; i++)
   {
     auto controller_name = "test_broadcaster_" + std::to_string(i);
@@ -1236,6 +1236,9 @@ TEST_F(TestControllerManagerSrvs, list_large_number_of_controllers_With_chains)
   cm_->add_controller(
     test_chained_controller_8, TEST_CHAINED_CONTROLLER_8,
     test_chainable_controller::TEST_CONTROLLER_CLASS_NAME);
+  cm_->add_controller(
+    test_chained_controller_9, TEST_CHAINED_CONTROLLER_9,
+    test_chainable_controller::TEST_CONTROLLER_CLASS_NAME);
 
   {
     ControllerManagerRunner cm_runner(this);
@@ -1252,7 +1255,7 @@ TEST_F(TestControllerManagerSrvs, list_large_number_of_controllers_With_chains)
 
   // check chainable controller
   ASSERT_EQ(
-    10u + num_of_random_broadcasters + num_of_random_controllers, result->controller.size());
+    11u + num_of_random_broadcasters + num_of_random_controllers, result->controller.size());
   EXPECT_EQ(result->controller[0].name, TEST_CHAINED_CONTROLLER_2);
   EXPECT_EQ(result->controller[1].name, TEST_CHAINED_CONTROLLER_6);
   EXPECT_EQ(result->controller[2].name, TEST_CHAINED_CONTROLLER_1);
@@ -1266,11 +1269,11 @@ TEST_F(TestControllerManagerSrvs, list_large_number_of_controllers_With_chains)
   EXPECT_EQ(result->controller[9].name, TEST_CHAINED_CONTROLLER_8);
 
   // configure controllers
-  auto ctrls_order = {TEST_CHAINED_CONTROLLER_3, TEST_CHAINED_CONTROLLER_5,
-                      TEST_CHAINED_CONTROLLER_1, TEST_CONTROLLER_1,
-                      TEST_CHAINED_CONTROLLER_4, TEST_CONTROLLER_2,
-                      TEST_CHAINED_CONTROLLER_2, TEST_CHAINED_CONTROLLER_6,
-                      TEST_CHAINED_CONTROLLER_7, TEST_CHAINED_CONTROLLER_8};
+  auto ctrls_order = {
+    TEST_CHAINED_CONTROLLER_3, TEST_CHAINED_CONTROLLER_5, TEST_CHAINED_CONTROLLER_9,
+    TEST_CHAINED_CONTROLLER_1, TEST_CONTROLLER_1,         TEST_CHAINED_CONTROLLER_4,
+    TEST_CONTROLLER_2,         TEST_CHAINED_CONTROLLER_2, TEST_CHAINED_CONTROLLER_6,
+    TEST_CHAINED_CONTROLLER_7, TEST_CHAINED_CONTROLLER_8};
   {
     ControllerManagerRunner cm_runner(this);
     for (const auto & controller : ctrls_order)
@@ -1287,7 +1290,7 @@ TEST_F(TestControllerManagerSrvs, list_large_number_of_controllers_With_chains)
   // get controller list after configure
   result = call_service_and_wait(*client, request, srv_executor);
   ASSERT_EQ(
-    10u + num_of_random_broadcasters + num_of_random_controllers, result->controller.size());
+    11u + num_of_random_broadcasters + num_of_random_controllers, result->controller.size());
 
   auto get_ctrl_pos = [result](const std::string & controller_name) -> int
   {
@@ -1305,6 +1308,7 @@ TEST_F(TestControllerManagerSrvs, list_large_number_of_controllers_With_chains)
   auto ctrl_chain_6_pos = get_ctrl_pos(TEST_CHAINED_CONTROLLER_6);
   auto ctrl_chain_7_pos = get_ctrl_pos(TEST_CHAINED_CONTROLLER_7);
   auto ctrl_chain_8_pos = get_ctrl_pos(TEST_CHAINED_CONTROLLER_8);
+  auto ctrl_chain_9_pos = get_ctrl_pos(TEST_CHAINED_CONTROLLER_9);
 
   auto ctrl_1_pos = get_ctrl_pos(TEST_CONTROLLER_1);
   auto ctrl_2_pos = get_ctrl_pos(TEST_CONTROLLER_2);
@@ -1322,4 +1326,11 @@ TEST_F(TestControllerManagerSrvs, list_large_number_of_controllers_With_chains)
 
   // third tree
   ASSERT_GT(ctrl_chain_7_pos, ctrl_chain_8_pos);
+
+  for (size_t i = 0; i < num_of_random_controllers; i++)
+  {
+    auto controller_name = "test_random_controllers_" + std::to_string(i);
+    ASSERT_GT(ctrl_chain_9_pos, get_ctrl_pos(controller_name));
+  }
+  RCLCPP_INFO(srv_node->get_logger(), "Check successful!");
 }
