@@ -2535,7 +2535,7 @@ bool ControllerManager::controller_sorting(
       const auto ctrl_b_chain_first_controller = find_first_element(following_ctrls_b);
       if (ctrl_a_chain_first_controller < ctrl_b_chain_first_controller)
       {
-        return true;
+        return false;
       }
     }
 
