@@ -1353,7 +1353,7 @@ TEST_F(TestControllerManagerSrvs, list_sorted_large_chained_controller_tree)
     srv_node->create_client<ListControllers>("test_controller_manager/list_controllers");
   auto request = std::make_shared<ListControllers::Request>();
 
-  unsigned int joints_count = 5;
+  unsigned int joints_count = 20;
 
   static constexpr char JOINT_CONTROLLER_PREFIX[] = "test_chainable_controller_name_joint_";
   static constexpr char FWD_CONTROLLER_PREFIX[] = "forward_controller_joint_";
@@ -1473,9 +1473,17 @@ TEST_F(TestControllerManagerSrvs, list_sorted_large_chained_controller_tree)
   // configure controllers
   {
     ControllerManagerRunner cm_runner(this);
-    for (auto ctrl : controllers_list)
+    //    for (auto ctrl : controllers_list)
+    //    {
+    //      cm_->configure_controller(ctrl);
+    //    }
+    for (auto random_ctrl : random_controllers_list)
     {
-      cm_->configure_controller(ctrl);
+      cm_->configure_controller(random_ctrl.first);
+    }
+    for (auto random_broadcaster : random_broadcaster_list)
+    {
+      cm_->configure_controller(random_broadcaster.first);
     }
   }
 

@@ -2455,7 +2455,7 @@ bool ControllerManager::controller_sorting(
     auto ctrl_b_it = std::find_if(
       controllers.begin(), controllers.end(),
       std::bind(controller_name_compare, std::placeholders::_1, ctrl_b.info.name));
-    return std::distance(controllers.begin(), ctrl_a_it) >
+    return std::distance(controllers.begin(), ctrl_a_it) <
            std::distance(controllers.begin(), ctrl_b_it);
   }
 
