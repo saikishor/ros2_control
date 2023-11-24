@@ -2449,6 +2449,7 @@ bool ControllerManager::controller_sorting(
   if (!((is_controller_active(ctrl_a.c) || is_controller_inactive(ctrl_a.c)) &&
         (is_controller_active(ctrl_b.c) || is_controller_inactive(ctrl_b.c))))
   {
+    if (is_controller_active(ctrl_a.c) || is_controller_inactive(ctrl_a.c)) return true;
     auto ctrl_a_it = std::find_if(
       controllers.begin(), controllers.end(),
       std::bind(controller_name_compare, std::placeholders::_1, ctrl_a.info.name));
@@ -2473,10 +2474,14 @@ bool ControllerManager::controller_sorting(
       auto ctrl_b_it = std::find_if(
         controllers.begin(), controllers.end(),
         std::bind(controller_name_compare, std::placeholders::_1, ctrl_b.info.name));
-      return std::distance(controllers.begin(), ctrl_a_it) >
+      return std::distance(controllers.begin(), ctrl_a_it) <
              std::distance(controllers.begin(), ctrl_b_it);
     }
     return true;
+  }
+  else if (ctrl_b.c->command_interface_configuration().names.empty() || !ctrl_b.c->is_chainable())
+  {
+    return false;
   }
   else
   {
