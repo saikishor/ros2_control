@@ -1473,17 +1473,9 @@ TEST_F(TestControllerManagerSrvs, list_sorted_large_chained_controller_tree)
   // configure controllers
   {
     ControllerManagerRunner cm_runner(this);
-    //    for (auto ctrl : controllers_list)
-    //    {
-    //      cm_->configure_controller(ctrl);
-    //    }
-    for (auto random_ctrl : random_controllers_list)
+    for (auto random_ctrl : controllers_list)
     {
-      cm_->configure_controller(random_ctrl.first);
-    }
-    for (auto random_broadcaster : random_broadcaster_list)
-    {
-      cm_->configure_controller(random_broadcaster.first);
+      cm_->configure_controller(random_ctrl);
     }
   }
 
