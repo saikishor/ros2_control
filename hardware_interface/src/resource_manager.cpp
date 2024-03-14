@@ -759,7 +759,6 @@ ResourceManager::ResourceManager(
 void ResourceManager::load_urdf(
   const std::string & urdf, bool validate_interfaces, bool load_and_initialize_components)
 {
-  is_urdf_loaded__ = true;
   const std::string system_type = "system";
   const std::string sensor_type = "sensor";
   const std::string actuator_type = "actuator";
@@ -797,6 +796,7 @@ void ResourceManager::load_urdf(
   read_write_status.failed_hardware_names.reserve(
     resource_storage_->actuators_.size() + resource_storage_->sensors_.size() +
     resource_storage_->systems_.size());
+  is_urdf_loaded__ = true;
 }
 
 bool ResourceManager::is_urdf_already_loaded() const { return is_urdf_loaded__; }
@@ -1328,39 +1328,41 @@ return_type ResourceManager::set_component_state(
 HardwareReadWriteStatus ResourceManager::read(
   const rclcpp::Time & time, const rclcpp::Duration & period)
 {
-  std::lock_guard<std::recursive_mutex> guard(resources_lock_);
   read_write_status.ok = true;
   read_write_status.failed_hardware_names.clear();
-
-  auto read_components = [&](auto & components)
+  if(is_urdf_already_loaded())
   {
-    for (auto & component : components)
+    std::lock_guard<std::recursive_mutex> guard(resources_lock_);
+
+    auto read_components = [&](auto & components)
     {
-      auto ret_val = component.read(time, period);
-      if (ret_val == return_type::ERROR)
+      for (auto & component : components)
       {
-        read_write_status.ok = false;
-        read_write_status.failed_hardware_names.push_back(component.get_name());
-        resource_storage_->remove_all_hardware_interfaces_from_available_list(component.get_name());
+        auto ret_val = component.read(time, period);
+        if (ret_val == return_type::ERROR)
+        {
+          read_write_status.ok = false;
+          read_write_status.failed_hardware_names.push_back(component.get_name());
+          resource_storage_->remove_all_hardware_interfaces_from_available_list(component.get_name());
+        }
+        else if (ret_val == return_type::DEACTIVATE)
+        {
+          resource_storage_->deactivate_hardware(component);
+        }
+        // If desired: automatic re-activation. We could add a flag for this...
+        // else
+        // {
+        // using lifecycle_msgs::msg::State;
+        // rclcpp_lifecycle::State state(State::PRIMARY_STATE_ACTIVE, lifecycle_state_names::ACTIVE);
+        // set_component_state(component.get_name(), state);
+        // }
       }
-      else if (ret_val == return_type::DEACTIVATE)
-      {
-        resource_storage_->deactivate_hardware(component);
-      }
-      // If desired: automatic re-activation. We could add a flag for this...
-      // else
-      // {
-      // using lifecycle_msgs::msg::State;
-      // rclcpp_lifecycle::State state(State::PRIMARY_STATE_ACTIVE, lifecycle_state_names::ACTIVE);
-      // set_component_state(component.get_name(), state);
-      // }
-    }
-  };
+    };
 
-  read_components(resource_storage_->actuators_);
-  read_components(resource_storage_->sensors_);
-  read_components(resource_storage_->systems_);
-
+    read_components(resource_storage_->actuators_);
+    read_components(resource_storage_->sensors_);
+    read_components(resource_storage_->systems_);
+  }
   return read_write_status;
 }
 
@@ -1368,30 +1370,33 @@ HardwareReadWriteStatus ResourceManager::read(
 HardwareReadWriteStatus ResourceManager::write(
   const rclcpp::Time & time, const rclcpp::Duration & period)
 {
-  std::lock_guard<std::recursive_mutex> guard(resources_lock_);
   read_write_status.ok = true;
   read_write_status.failed_hardware_names.clear();
-
-  auto write_components = [&](auto & components)
+  if(is_urdf_already_loaded())
   {
-    for (auto & component : components)
-    {
-      auto ret_val = component.write(time, period);
-      if (ret_val == return_type::ERROR)
-      {
-        read_write_status.ok = false;
-        read_write_status.failed_hardware_names.push_back(component.get_name());
-        resource_storage_->remove_all_hardware_interfaces_from_available_list(component.get_name());
-      }
-      else if (ret_val == return_type::DEACTIVATE)
-      {
-        resource_storage_->deactivate_hardware(component);
-      }
-    }
-  };
+    std::lock_guard<std::recursive_mutex> guard(resources_lock_);
 
-  write_components(resource_storage_->actuators_);
-  write_components(resource_storage_->systems_);
+    auto write_components = [&](auto & components)
+    {
+      for (auto & component : components)
+      {
+        auto ret_val = component.write(time, period);
+        if (ret_val == return_type::ERROR)
+        {
+          read_write_status.ok = false;
+          read_write_status.failed_hardware_names.push_back(component.get_name());
+          resource_storage_->remove_all_hardware_interfaces_from_available_list(component.get_name());
+        }
+        else if (ret_val == return_type::DEACTIVATE)
+        {
+          resource_storage_->deactivate_hardware(component);
+        }
+      }
+    };
+
+    write_components(resource_storage_->actuators_);
+    write_components(resource_storage_->systems_);
+  }
 
   return read_write_status;
 }
