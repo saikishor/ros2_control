@@ -768,6 +768,7 @@ void ResourceManager::load_urdf(
   if (load_and_initialize_components)
   {
     std::lock_guard<std::recursive_mutex> resources_guard(resources_lock_);
+    RCUTILS_LOG_INFO_NAMED("resource_manager", "Locking the resources lock before initializing the hardware!");
     for (const auto & individual_hardware_info : hardware_info)
     {
       if (individual_hardware_info.type == actuator_type)
@@ -786,6 +787,7 @@ void ResourceManager::load_urdf(
         resource_storage_->load_and_initialize_system(individual_hardware_info);
       }
     }
+    RCUTILS_LOG_INFO_NAMED("resource_manager", "Releasing the resources lock as hardware is initialized!");
   }
 
   // throw on missing state and command interfaces, not specified keys are being ignored
