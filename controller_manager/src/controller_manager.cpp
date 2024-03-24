@@ -936,19 +936,21 @@ controller_interface::return_type ControllerManager::switch_controller(
       status = check_following_controllers_for_activate(controllers, strictness, controller_it);
     }
 
-    const auto &fallback_list = controller_it->c->get_fallback_controllers_list();
-    if(!fallback_list.empty())
+    const auto & fallback_list = controller_it->c->get_fallback_controllers_list();
+    if (!fallback_list.empty())
     {
-      for(const auto &fb_ctrl : fallback_list)
+      for (const auto & fb_ctrl : fallback_list)
       {
         auto fb_ctrl_it = std::find_if(
           controllers.begin(), controllers.end(),
           std::bind(controller_name_compare, std::placeholders::_1, fb_ctrl));
-        if(fb_ctrl_it == controllers.end())
+        if (fb_ctrl_it == controllers.end())
         {
           RCLCPP_WARN(
-            get_logger(), "Unable to find the fallback controller : %s of the controller : %s "
-            "within the controller list", fb_ctrl.c_str(), controller_it->info.name.c_str());
+            get_logger(),
+            "Unable to find the fallback controller : %s of the controller : %s "
+            "within the controller list",
+            fb_ctrl.c_str(), controller_it->info.name.c_str());
           status = controller_interface::return_type::ERROR;
         }
         else

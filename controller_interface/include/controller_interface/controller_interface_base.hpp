@@ -157,7 +157,7 @@ public:
   bool is_async() const;
 
   CONTROLLER_INTERFACE_PUBLIC
-  const std::vector<std::string> &get_fallback_controllers_list() const;
+  const std::vector<std::string> & get_fallback_controllers_list() const;
 
   CONTROLLER_INTERFACE_PUBLIC
   const std::string & get_robot_description() const;
