@@ -37,6 +37,7 @@ return_type ControllerInterfaceBase::init(
   {
     auto_declare<int>("update_rate", cm_update_rate);
     auto_declare<bool>("is_async", false);
+    auto_declare<std::vector<std::string>>("fallback_controllers", {});
   }
   catch (const std::exception & e)
   {
@@ -88,6 +89,7 @@ const rclcpp_lifecycle::State & ControllerInterfaceBase::configure()
   {
     update_rate_ = static_cast<unsigned int>(get_node()->get_parameter("update_rate").as_int());
     is_async_ = get_node()->get_parameter("is_async").as_bool();
+    fallback_controllers_ = get_node()->get_parameter("fallback_controllers").as_string_array();
   }
 
   return get_node()->configure();
@@ -135,5 +137,10 @@ unsigned int ControllerInterfaceBase::get_update_rate() const { return update_ra
 bool ControllerInterfaceBase::is_async() const { return is_async_; }
 
 const std::string & ControllerInterfaceBase::get_robot_description() const { return urdf_; }
+
+const std::vector<std::string> & ControllerInterfaceBase::get_fallback_controllers_list() const
+{
+  return fallback_controllers_;
+}
 
 }  // namespace controller_interface

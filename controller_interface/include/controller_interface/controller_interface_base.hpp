@@ -157,6 +157,9 @@ public:
   bool is_async() const;
 
   CONTROLLER_INTERFACE_PUBLIC
+  const std::vector<std::string> &get_fallback_controllers_list() const;
+
+  CONTROLLER_INTERFACE_PUBLIC
   const std::string & get_robot_description() const;
 
   /**
@@ -249,6 +252,7 @@ public:
 protected:
   std::vector<hardware_interface::LoanedCommandInterface> command_interfaces_;
   std::vector<hardware_interface::LoanedStateInterface> state_interfaces_;
+  std::vector<std::string> fallback_controllers_;
   unsigned int update_rate_ = 0;
   bool is_async_ = false;
   std::string urdf_ = "";
