@@ -2095,6 +2095,15 @@ controller_interface::return_type ControllerManager::update(
         if (controller_ret != controller_interface::return_type::OK)
         {
           failed_controllers_list.push_back(loaded_controller.info.name);
+          if (!loaded_controller.c->get_fallback_controllers_list().empty())
+          {
+            RCLCPP_ERROR(
+              get_logger(), "Error updating controller '%s', switching to fallback controllers",
+              loaded_controller.info.name.c_str());
+            deactivate_controllers(rt_controller_list, {loaded_controller.info.name});
+            activate_controllers(
+              rt_controller_list, loaded_controller.c->get_fallback_controllers_list());
+          }
           ret = controller_ret;
         }
       }
