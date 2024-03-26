@@ -2138,6 +2138,26 @@ controller_interface::return_type ControllerManager::update(
             RCLCPP_ERROR(
               get_logger(), "Error updating controller '%s', switching to fallback controllers",
               loaded_controller.info.name.c_str());
+
+            std::vector<std::string> active_controllers_using_interfaces;
+            for (const auto & fallback_controller :
+                 loaded_controller.c->get_fallback_controllers_list())
+            {
+              auto controllers_list = get_active_controllers_using_command_interfaces_of_controller(
+                fallback_controller, rt_controller_list);
+              for (const auto & controller : controllers_list)
+              {
+                if (
+                  std::find(
+                    active_controllers_using_interfaces.begin(),
+                    active_controllers_using_interfaces.end(),
+                    controller.info.name) == active_controllers_using_interfaces.end())
+                {
+                  active_controllers_using_interfaces.push_back(controller.info.name);
+                }
+              }
+            }
+
             deactivate_controllers(rt_controller_list, {loaded_controller.info.name});
             activate_controllers(
               rt_controller_list, loaded_controller.c->get_fallback_controllers_list());
