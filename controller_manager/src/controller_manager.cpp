@@ -1336,6 +1336,8 @@ void ControllerManager::deactivate_controllers(
     auto controller = found_it->c;
     if (is_controller_active(*controller))
     {
+      // This is needed by the async controllers to finish their current cycle
+      controller->stop_async_update_cycle();
       const auto new_state = controller->get_node()->deactivate();
       controller->release_interfaces();
       // if it is a chainable controller, make the reference interfaces unavailable on deactivation
