@@ -26,6 +26,7 @@
 #include <string>
 #include <thread>
 #include <utility>
+#include <iostream>
 #include <vector>
 
 #include "lifecycle_msgs/msg/state.hpp"
@@ -99,7 +100,15 @@ public:
   std::pair<bool, T> trigger_async_update(
     const rclcpp::Time & time, const rclcpp::Duration & period)
   {
-    initialize_async_update_thread();
+    if (!is_initialized())
+    {
+      throw std::runtime_error("AsyncFunctionHandler: need to be initialized first!");
+    }
+    if (!is_running())
+    {
+      throw std::runtime_error(
+        "AsyncFunctionHandler: need to start the async update thread first before triggering!");
+    }
     std::unique_lock<std::mutex> lock(async_mtx_, std::try_to_lock);
     bool trigger_status = false;
     if (lock.owns_lock() && !trigger_in_progress_)
@@ -174,20 +183,20 @@ public:
   {
     if (is_running())
     {
+      std::lock_guard<std::mutex> lock(async_mtx_);
       async_update_stop_ = true;
       async_update_condition_.notify_one();
       thread_.join();
     }
   }
 
-private:
   /// Initialize the async update thread
   /**
    * If the async update thread is not running, it will start the async update thread.
    * If the async update thread is already configured and running, does nothing and return
    * immediately.
    */
-  void initialize_async_update_thread()
+  void start_async_update_thread()
   {
     if (!is_initialized())
     {
@@ -198,15 +207,22 @@ private:
       async_update_stop_ = false;
       trigger_in_progress_ = false;
       async_update_return_ = T();
+      std::cerr << "Starting async update thread" << std::endl;
       thread_ = std::thread(
         [this]() -> void
         {
+
+      std::cerr << "Starting async update thread2" << std::endl;
           // \note There might be an concurrency issue with the get_state() call here. This mightn't
           // be critical here as the state of the controller is not expected to change during the
           // update cycle
-          while (get_state_function_().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE &&
+          while ((get_state_function_().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE ||
+                  get_state_function_().id() ==
+                    lifecycle_msgs::msg::State::TRANSITION_STATE_ACTIVATING) &&
                  !async_update_stop_)
           {
+
+      std::cerr << "Starting async update thread3" << std::endl;
             std::unique_lock<std::mutex> lock(async_mtx_);
             async_update_condition_.wait(
               lock, [this] { return trigger_in_progress_ || async_update_stop_; });
@@ -220,9 +236,12 @@ private:
             async_update_condition_.notify_one();
           }
         });
+
+      std::cerr << "Starting async update thread4" << std::endl;
     }
   }
 
+private:
   rclcpp::Time current_update_time_;
   rclcpp::Duration current_update_period_{0, 0};
 
