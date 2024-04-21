@@ -2051,7 +2051,8 @@ controller_interface::return_type ControllerManager::update(
       {
         const auto controller_actual_period =
           (time - *loaded_controller.next_update_cycle_time) + controller_period;
-        auto controller_ret = loaded_controller.c->trigger_update(time, controller_actual_period);
+        const auto [trigger_status, controller_ret] =
+          loaded_controller.c->trigger_update(time, controller_actual_period);
 
         if (
           *loaded_controller.next_update_cycle_time ==
@@ -2060,7 +2061,7 @@ controller_interface::return_type ControllerManager::update(
           *loaded_controller.next_update_cycle_time = time;
         }
         *loaded_controller.next_update_cycle_time += controller_period;
-        if (!controller_ret.first)
+        if (!trigger_status)
         {
           RCLCPP_WARN(
             get_logger(),
@@ -2070,9 +2071,9 @@ controller_interface::return_type ControllerManager::update(
             loaded_controller.next_update_cycle_time->seconds());
         }
 
-        if (controller_ret.second != controller_interface::return_type::OK)
+        if (controller_ret != controller_interface::return_type::OK)
         {
-          ret = controller_ret.second;
+          ret = controller_ret;
         }
       }
     }
