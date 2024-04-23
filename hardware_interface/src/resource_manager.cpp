@@ -34,6 +34,7 @@
 #include "hardware_interface/system.hpp"
 #include "hardware_interface/system_interface.hpp"
 #include "hardware_interface/types/hardware_interface_type_values.hpp"
+#include "joint_limits/joint_limits_struct.hpp"
 #include "lifecycle_msgs/msg/state.hpp"
 #include "pluginlib/class_loader.hpp"
 #include "rcutils/logging_macros.h"
@@ -454,6 +455,61 @@ public:
     hardware_info_map_[hardware.get_name()].command_interfaces = add_command_interfaces(interfaces);
   }
 
+  template <class HardwareT>
+  void import_joint_limiters(HardwareT & hardware)
+  {
+    // define the limit handler and set them up and store inside an unordered map
+  }
+
+  template <typename T>
+  void update_joint_limiters_state(
+    const std::string & joint_name, const std::map<std::string, T> & interface_map,
+    joint_limits::JointControlInterfacesData & state)
+  {
+    // update the actual state of the limiters
+    if (
+      interface_map.find(joint_name + "/" + hardware_interface::HW_IF_VELOCITY) !=
+      interface_map.end())
+    {
+      state.velocity =
+        interface_map.at(joint_name + "/" + hardware_interface::HW_IF_VELOCITY).get_value();
+    }
+    if (
+      interface_map.find(joint_name + "/" + hardware_interface::HW_IF_POSITION) !=
+      interface_map.end())
+    {
+      state.position =
+        interface_map.at(joint_name + "/" + hardware_interface::HW_IF_POSITION).get_value();
+    }
+    if (
+      interface_map.find(joint_name + "/" + hardware_interface::HW_IF_EFFORT) !=
+      interface_map.end())
+    {
+      state.effort =
+        interface_map.at(joint_name + "/" + hardware_interface::HW_IF_EFFORT).get_value();
+    }
+    if (
+      interface_map.find(joint_name + "/" + hardware_interface::HW_IF_ACCELERATION) !=
+      interface_map.end())
+    {
+      state.acceleration =
+        interface_map.at(joint_name + "/" + hardware_interface::HW_IF_ACCELERATION).get_value();
+    }
+  }
+
+  void update_joint_limiters_data()
+  {
+    for (auto & joint_limiter_data : joint_limiters_data_)
+    {
+      const std::string joint_name = joint_limiter_data.first;
+      auto & data = joint_limiter_data.second;
+      data.joint_name = joint_name;
+      update_joint_limiters_state(joint_name, state_interface_map_, data.actual);
+      update_joint_limiters_state(joint_name, command_interface_map_, data.command);
+      data.limited = data.command;
+    }
+  }
+
   /// Adds exported command interfaces into internal storage.
   /**
    * Add command interfaces to the internal storage. Command interfaces exported from hardware or
@@ -723,6 +779,9 @@ public:
   /// List of async components by type
   std::unordered_map<std::string, AsyncComponentThread> async_component_threads_;
 
+  std::unordered_map<std::string, joint_limits::JointInterfacesCommandLimiterData>
+    joint_limiters_data_;
+
   // Update rate of the controller manager, and the clock interface of its node
   // Used by async components.
   unsigned int cm_update_rate_;
@@ -765,6 +824,20 @@ void ResourceManager::load_urdf(
   const std::string actuator_type = "actuator";
 
   const auto hardware_info = hardware_interface::parse_control_resources_from_urdf(urdf);
+  for(const auto &hw_info : hardware_info)
+  {
+    for (const auto &[joint_name, limits] : hw_info.limits)
+    {
+      resource_storage_->joint_limiters_data_[joint_name] = {};
+    }
+  }
+  for(const auto &hw_info : hardware_info)
+  {
+    for (const auto &[joint_name, limits] : hw_info.soft_limits)
+    {
+      resource_storage_->joint_limiters_data_[joint_name] = {};
+    }
+  }
   if (load_and_initialize_components)
   {
     for (const auto & individual_hardware_info : hardware_info)
