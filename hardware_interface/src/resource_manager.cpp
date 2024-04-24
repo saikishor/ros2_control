@@ -468,18 +468,18 @@ public:
   {
     // update the actual state of the limiters
     if (
-      interface_map.find(joint_name + "/" + hardware_interface::HW_IF_VELOCITY) !=
-      interface_map.end())
-    {
-      state.velocity =
-        interface_map.at(joint_name + "/" + hardware_interface::HW_IF_VELOCITY).get_value();
-    }
-    if (
       interface_map.find(joint_name + "/" + hardware_interface::HW_IF_POSITION) !=
       interface_map.end())
     {
       state.position =
         interface_map.at(joint_name + "/" + hardware_interface::HW_IF_POSITION).get_value();
+    }
+    if (
+      interface_map.find(joint_name + "/" + hardware_interface::HW_IF_VELOCITY) !=
+      interface_map.end())
+    {
+      state.velocity =
+        interface_map.at(joint_name + "/" + hardware_interface::HW_IF_VELOCITY).get_value();
     }
     if (
       interface_map.find(joint_name + "/" + hardware_interface::HW_IF_EFFORT) !=
@@ -499,14 +499,14 @@ public:
 
   void update_joint_limiters_data()
   {
-    for (auto & joint_limiter_data : joint_limiters_data_)
+    for (auto & joint_limiter_data : limiters_data_)
     {
-      const std::string joint_name = joint_limiter_data.first;
-      auto & data = joint_limiter_data.second;
-      data.joint_name = joint_name;
-      update_joint_limiters_state(joint_name, state_interface_map_, data.actual);
-      update_joint_limiters_state(joint_name, command_interface_map_, data.command);
-      data.limited = data.command;
+      for (auto & data : joint_limiter_data.second)
+      {
+        update_joint_limiters_state(data.joint_name, state_interface_map_, data.actual);
+        update_joint_limiters_state(data.joint_name, command_interface_map_, data.command);
+        data.limited = data.command;
+      }
     }
   }
 
@@ -779,8 +779,13 @@ public:
   /// List of async components by type
   std::unordered_map<std::string, AsyncComponentThread> async_component_threads_;
 
-  std::unordered_map<std::string, joint_limits::JointInterfacesCommandLimiterData>
-    joint_limiters_data_;
+  std::unordered_map<std::string, std::vector<joint_limits::JointInterfacesCommandLimiterData>>
+    limiters_data_;
+
+  std::unordered_map<
+    std::string, std::vector<std::unique_ptr<joint_limits::JointLimiterInterface<
+                   joint_limits::JointInterfacesCommandLimiterData>>>>
+    joint_limiters_interface_;
 
   // Update rate of the controller manager, and the clock interface of its node
   // Used by async components.
@@ -824,18 +829,29 @@ void ResourceManager::load_urdf(
   const std::string actuator_type = "actuator";
 
   const auto hardware_info = hardware_interface::parse_control_resources_from_urdf(urdf);
-  for(const auto &hw_info : hardware_info)
+  for (const auto & hw_info : hardware_info)
   {
-    for (const auto &[joint_name, limits] : hw_info.limits)
+    resource_storage_->limiters_data_[hw_info.name] = {};
+    for (const auto & [joint_name, limits] : hw_info.limits)
     {
-      resource_storage_->joint_limiters_data_[joint_name] = {};
-    }
-  }
-  for(const auto &hw_info : hardware_info)
-  {
-    for (const auto &[joint_name, limits] : hw_info.soft_limits)
-    {
-      resource_storage_->joint_limiters_data_[joint_name] = {};
+      std::vector<joint_limits::SoftJointLimits> soft_limits;
+      const std::vector<joint_limits::JointLimits> hard_limits{limits};
+      joint_limits::JointInterfacesCommandLimiterData data;
+      data.joint_name = joint_name;
+      resource_storage_->limiters_data_[hw_info.name].push_back(data);
+      // If the joint limits is found in the softlimits, then extract it
+      if (hw_info.soft_limits.find(joint_name) != hw_info.soft_limits.end())
+      {
+        soft_limits = {hw_info.soft_limits.at(joint_name)};
+      }
+      std::unique_ptr<
+        joint_limits::JointLimiterInterface<joint_limits::JointInterfacesCommandLimiterData>>
+        limits_interface;
+      limits_interface = std::make_unique<
+        joint_limits::JointLimiterInterface<joint_limits::JointInterfacesCommandLimiterData>>();
+      limits_interface->init({joint_name}, hard_limits, soft_limits, nullptr, nullptr);
+      resource_storage_->joint_limiters_interface_[hw_info.name].push_back(
+        std::move(limits_interface));
     }
   }
   if (load_and_initialize_components)
