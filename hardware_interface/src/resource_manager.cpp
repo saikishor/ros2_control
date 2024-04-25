@@ -1500,6 +1500,22 @@ HardwareReadWriteStatus ResourceManager::write(
   read_write_status.ok = true;
   read_write_status.failed_hardware_names.clear();
 
+  // Joint Limiters operations
+  {
+    resource_storage_->update_joint_limiters_data();
+    for (auto & [hw_name, limiters] : resource_storage_->joint_limiters_interface_)
+    {
+      for (size_t i = 0; i < limiters.size(); i++)
+      {
+        joint_limits::JointInterfacesCommandLimiterData & data =
+          resource_storage_->limiters_data_[hw_name][i];
+        limiters[i]->enforce(data.actual, data.limited, period);
+        resource_storage_->update_joint_limiters_commands(
+          data.limited, resource_storage_->command_interface_map_);
+      }
+    }
+  }
+
   auto write_components = [&](auto & components)
   {
     for (auto & component : components)
