@@ -20,7 +20,7 @@ from launch_ros.actions import Node
 
 
 def generate_load_controller_launch_description(
-    controller_name, controller_type=None, controller_params_file=None
+    controller_name, controller_type=None, controller_params_file=None, extra_spawner_args=[]
 ):
     """
     Generate launch description for loading a controller using spawner.
@@ -78,6 +78,9 @@ def generate_load_controller_launch_description(
             ]
         )
     ]
+
+    if extra_spawner_args:
+        spawner_arguments += extra_spawner_args
 
     spawner = Node(
         package="controller_manager",
