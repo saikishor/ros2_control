@@ -455,10 +455,32 @@ public:
     hardware_info_map_[hardware.get_name()].command_interfaces = add_command_interfaces(interfaces);
   }
 
-  template <class HardwareT>
-  void import_joint_limiters(HardwareT & hardware)
+  void import_joint_limiters(const std::vector<HardwareInfo> & hardware_infos)
   {
-    // define the limit handler and set them up and store inside an unordered map
+    for (const auto & hw_info : hardware_infos)
+    {
+      limiters_data_[hw_info.name] = {};
+      for (const auto & [joint_name, limits] : hw_info.limits)
+      {
+        std::vector<joint_limits::SoftJointLimits> soft_limits;
+        const std::vector<joint_limits::JointLimits> hard_limits{limits};
+        joint_limits::JointInterfacesCommandLimiterData data;
+        data.joint_name = joint_name;
+        limiters_data_[hw_info.name].push_back(data);
+        // If the joint limits is found in the softlimits, then extract it
+        if (hw_info.soft_limits.find(joint_name) != hw_info.soft_limits.end())
+        {
+          soft_limits = {hw_info.soft_limits.at(joint_name)};
+        }
+        std::unique_ptr<
+          joint_limits::JointLimiterInterface<joint_limits::JointControlInterfacesData>>
+          limits_interface;
+        limits_interface = std::make_unique<
+          joint_limits::JointLimiterInterface<joint_limits::JointControlInterfacesData>>();
+        limits_interface->init({joint_name}, hard_limits, soft_limits, nullptr, nullptr);
+        joint_limiters_interface_[hw_info.name].push_back(std::move(limits_interface));
+      }
+    }
   }
 
   template <typename T>
@@ -869,30 +891,7 @@ void ResourceManager::load_urdf(
   const std::string actuator_type = "actuator";
 
   const auto hardware_info = hardware_interface::parse_control_resources_from_urdf(urdf);
-  for (const auto & hw_info : hardware_info)
-  {
-    resource_storage_->limiters_data_[hw_info.name] = {};
-    for (const auto & [joint_name, limits] : hw_info.limits)
-    {
-      std::vector<joint_limits::SoftJointLimits> soft_limits;
-      const std::vector<joint_limits::JointLimits> hard_limits{limits};
-      joint_limits::JointInterfacesCommandLimiterData data;
-      data.joint_name = joint_name;
-      resource_storage_->limiters_data_[hw_info.name].push_back(data);
-      // If the joint limits is found in the softlimits, then extract it
-      if (hw_info.soft_limits.find(joint_name) != hw_info.soft_limits.end())
-      {
-        soft_limits = {hw_info.soft_limits.at(joint_name)};
-      }
-      std::unique_ptr<joint_limits::JointLimiterInterface<joint_limits::JointControlInterfacesData>>
-        limits_interface;
-      limits_interface = std::make_unique<
-        joint_limits::JointLimiterInterface<joint_limits::JointControlInterfacesData>>();
-      limits_interface->init({joint_name}, hard_limits, soft_limits, nullptr, nullptr);
-      resource_storage_->joint_limiters_interface_[hw_info.name].push_back(
-        std::move(limits_interface));
-    }
-  }
+  resource_storage_->import_joint_limiters(hardware_info);
   if (load_and_initialize_components)
   {
     for (const auto & individual_hardware_info : hardware_info)
