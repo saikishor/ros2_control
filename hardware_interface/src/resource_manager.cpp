@@ -822,8 +822,8 @@ public:
     limiters_data_;
 
   std::unordered_map<
-    std::string, std::vector<std::unique_ptr<joint_limits::JointLimiterInterface<
-                   joint_limits::JointInterfacesCommandLimiterData>>>>
+    std::string, std::vector<std::unique_ptr<
+                   joint_limits::JointLimiterInterface<joint_limits::JointControlInterfacesData>>>>
     joint_limiters_interface_;
 
   // Update rate of the controller manager, and the clock interface of its node
@@ -883,11 +883,10 @@ void ResourceManager::load_urdf(
       {
         soft_limits = {hw_info.soft_limits.at(joint_name)};
       }
-      std::unique_ptr<
-        joint_limits::JointLimiterInterface<joint_limits::JointInterfacesCommandLimiterData>>
+      std::unique_ptr<joint_limits::JointLimiterInterface<joint_limits::JointControlInterfacesData>>
         limits_interface;
       limits_interface = std::make_unique<
-        joint_limits::JointLimiterInterface<joint_limits::JointInterfacesCommandLimiterData>>();
+        joint_limits::JointLimiterInterface<joint_limits::JointControlInterfacesData>>();
       limits_interface->init({joint_name}, hard_limits, soft_limits, nullptr, nullptr);
       resource_storage_->joint_limiters_interface_[hw_info.name].push_back(
         std::move(limits_interface));
