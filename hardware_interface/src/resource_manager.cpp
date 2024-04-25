@@ -466,6 +466,7 @@ public:
     const std::string & joint_name, const std::map<std::string, T> & interface_map,
     joint_limits::JointControlInterfacesData & state)
   {
+    state.joint_name = joint_name;
     // update the actual state of the limiters
     if (
       interface_map.find(joint_name + "/" + hardware_interface::HW_IF_POSITION) !=
