@@ -191,7 +191,7 @@ std::vector<std::string> get_active_controllers_using_command_interfaces_of_cont
   {
     for (const auto & controller : controllers)
     {
-      const ctrl_cmd_itfs = controller.c->command_interface_configuration().names;
+      const auto ctrl_cmd_itfs = controller.c->command_interface_configuration().names;
       // check if the controller is active and has the command interface and make sure that it
       // doesn't exist in the list already
       if (
@@ -2151,9 +2151,9 @@ controller_interface::return_type ControllerManager::update(
                   std::find(
                     active_controllers_using_interfaces.begin(),
                     active_controllers_using_interfaces.end(),
-                    controller.info.name) == active_controllers_using_interfaces.end())
+                    loaded_controller.info.name) == active_controllers_using_interfaces.end())
                 {
-                  active_controllers_using_interfaces.push_back(controller.info.name);
+                  active_controllers_using_interfaces.push_back(loaded_controller.info.name);
                 }
               }
             }
