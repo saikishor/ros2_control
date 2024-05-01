@@ -170,6 +170,44 @@ void controller_chain_spec_cleanup(
   ctrl_chain_spec.erase(controller);
 }
 
+// Gets the list of active controllers that use the command interface of the given controller
+std::vector<std::string> get_active_controllers_using_command_interfaces_of_controller(
+  const std::string & controller_name,
+  const std::vector<controller_manager::ControllerSpec> & controllers)
+{
+  auto it = std::find_if(
+    controllers.begin(), controllers.end(),
+    std::bind(controller_name_compare, std::placeholders::_1, controller_name));
+  if (it == controllers.end())
+  {
+    RCLCPP_ERROR(
+      rclcpp::get_logger("ControllerManager::utils"),
+      "Controller '%s' not found in the list of controllers.", controller_name.c_str());
+    return {};
+  }
+  std::vector<std::string> controllers_using_command_interfaces;
+  const auto cmd_itfs = it->c->command_interface_configuration().names;
+  for (const auto & cmd_itf : cmd_itfs)
+  {
+    for (const auto & controller : controllers)
+    {
+      const auto ctrl_cmd_itfs = controller.c->command_interface_configuration().names;
+      // check if the controller is active and has the command interface and make sure that it
+      // doesn't exist in the list already
+      if (
+        is_controller_active(controller.c) &&
+        std::find(ctrl_cmd_itfs.begin(), ctrl_cmd_itfs.end(), cmd_itf) != ctrl_cmd_itfs.end() &&
+        std::find(
+          controllers_using_command_interfaces.begin(), controllers_using_command_interfaces.end(),
+          controller.info.name) == controllers_using_command_interfaces.end())
+      {
+        controllers_using_command_interfaces.push_back(controller.info.name);
+      }
+    }
+  }
+  return controllers_using_command_interfaces;
+}
+
 }  // namespace
 
 namespace controller_manager
@@ -2192,7 +2230,12 @@ controller_interface::return_type ControllerManager::update(
 
         if (controller_ret != controller_interface::return_type::OK)
         {
-          failed_controllers_list.push_back(loaded_controller.info.name);
+          auto controllers_list = get_active_controllers_using_command_interfaces_of_controller(
+            loaded_controller.info.name, rt_controller_list);
+          for (const auto & controller : controllers_list)
+          {
+            failed_controllers_list.push_back(controller);
+          }
           ret = controller_ret;
         }
       }
