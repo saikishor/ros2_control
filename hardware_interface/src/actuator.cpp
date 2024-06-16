@@ -220,12 +220,17 @@ std::string Actuator::get_group_name() const { return impl_->get_group_name(); }
 
 const rclcpp_lifecycle::State & Actuator::get_state() const { return impl_->get_state(); }
 
+const rclcpp::Time & Actuator::get_last_read_time() const { return last_read_cycle_time_; }
+
+const rclcpp::Time & Actuator::get_last_write_time() const { return last_write_cycle_time_; }
+
 return_type Actuator::read(const rclcpp::Time & time, const rclcpp::Duration & period)
 {
   if (
     impl_->get_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED ||
     impl_->get_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_FINALIZED)
   {
+    last_read_cycle_time_ = rclcpp::Time(0, 0, time.get_clock_type());
     return return_type::OK;
   }
   return_type result = return_type::ERROR;
@@ -238,6 +243,7 @@ return_type Actuator::read(const rclcpp::Time & time, const rclcpp::Duration & p
     {
       error();
     }
+    last_read_cycle_time_ = time;
   }
   return result;
 }
@@ -248,6 +254,7 @@ return_type Actuator::write(const rclcpp::Time & time, const rclcpp::Duration & 
     impl_->get_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED ||
     impl_->get_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_FINALIZED)
   {
+    last_write_cycle_time_ = rclcpp::Time(0, 0, time.get_clock_type());
     return return_type::OK;
   }
   return_type result = return_type::ERROR;
@@ -260,6 +267,7 @@ return_type Actuator::write(const rclcpp::Time & time, const rclcpp::Duration & 
     {
       error();
     }
+    last_write_cycle_time_ = time;
   }
   return result;
 }
