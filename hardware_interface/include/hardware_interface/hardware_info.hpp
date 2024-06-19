@@ -18,6 +18,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include "joint_limits/joint_limits.hpp"
 
 #include "joint_limits/joint_limits.hpp"
 
