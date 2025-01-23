@@ -296,8 +296,8 @@ void ControllerManager::init_controller_manager()
   controller_manager_activity_publisher_ =
     create_publisher<controller_manager_msgs::msg::ControllerManagerActivity>(
       "~/activity", rclcpp::QoS(1).reliable().transient_local());
-  rt_controllers_wrapper_.set_on_switch_callback(
-    std::bind(&ControllerManager::publish_activity, this));
+  // rt_controllers_wrapper_.set_on_switch_callback(
+  //   std::bind(&ControllerManager::publish_activity, this));
   resource_manager_->set_on_component_state_switch_callback(
     std::bind(&ControllerManager::publish_activity, this));
 
@@ -738,11 +738,12 @@ controller_interface::return_type ControllerManager::unload_controller(
   return controller_interface::return_type::OK;
 }
 
-void ControllerManager::shutdown_controller(controller_manager::ControllerSpec & controller) const
+void ControllerManager::shutdown_controller(controller_manager::ControllerSpec & controller)
 {
   try
   {
-    const auto new_state = controller.c->get_node()->shutdown();
+    const auto new_state =
+      set_controller_state(controller.c, lifecycle_msgs::msg::State::PRIMARY_STATE_FINALIZED);
     if (new_state.id() != lifecycle_msgs::msg::State::PRIMARY_STATE_FINALIZED)
     {
       RCLCPP_WARN(
@@ -812,7 +813,8 @@ controller_interface::return_type ControllerManager::configure_controller(
     // cleaning-up controllers?
     try
     {
-      new_state = controller->get_node()->cleanup();
+      new_state =
+        set_controller_state(controller, lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED);
       if (new_state.id() != lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED)
       {
         RCLCPP_ERROR(
@@ -1663,7 +1665,8 @@ void ControllerManager::deactivate_controllers(
     {
       try
       {
-        const auto new_state = controller->get_node()->deactivate();
+        const auto new_state =
+          set_controller_state(controller, lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
         controller->release_interfaces();
 
         // if it is a chainable controller, make the reference interfaces unavailable on
@@ -1860,7 +1863,8 @@ void ControllerManager::activate_controllers(
     {
       found_it->periodicity_statistics->Reset();
       found_it->execution_time_statistics->Reset();
-      const auto new_state = controller->get_node()->activate();
+      const auto new_state =
+        set_controller_state(controller, lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE);
       if (new_state.id() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
       {
         RCLCPP_ERROR(
@@ -2872,6 +2876,7 @@ rclcpp_lifecycle::State ControllerManager::set_controller_state(
       RCLCPP_ERROR(get_logger(), "Parsed target state is not a valid lifecycle state");
       break;
   }
+  publish_activity();
   return controller->get_lifecycle_state();
 }
 
