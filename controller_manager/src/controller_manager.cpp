@@ -2757,6 +2757,124 @@ std::pair<std::string, std::string> ControllerManager::split_command_interface(
 
 unsigned int ControllerManager::get_update_rate() const { return update_rate_; }
 
+rclcpp_lifecycle::State ControllerManager::set_controller_state(
+  controller_interface::ControllerInterfaceBaseSharedPtr controller, const uint8_t & target_state)
+{
+  const std::string controller_name = controller->get_node()->get_name();
+  const rclcpp_lifecycle::State controller_state = controller->get_lifecycle_state();
+  rclcpp_lifecycle::State new_state(controller_state);
+  switch (target_state)
+  {
+    case lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED:
+      switch (controller_state.id())
+      {
+        case lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED:
+          RCLCPP_INFO(
+            get_logger(), "Controller '%s' is already in the unconfigured state",
+            controller_name.c_str());
+          break;
+        case lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE:
+          controller->get_node()->cleanup();
+          break;
+        case lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE:
+          new_state = controller->get_node()->deactivate();
+          if (new_state.id() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE)
+          {
+            controller->get_node()->cleanup();
+          }
+          break;
+        case lifecycle_msgs::msg::State::PRIMARY_STATE_FINALIZED:
+          RCLCPP_ERROR(
+            get_logger(), "Controller '%s' is in the finalized state and cannot be unconfigured",
+            controller_name.c_str());
+          break;
+      }
+      break;
+    case lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE:
+      switch (controller_state.id())
+      {
+        case lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED:
+          controller->configure();
+          break;
+        case lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE:
+          RCLCPP_INFO(
+            get_logger(), "Controller '%s' is already in the inactive state",
+            controller_name.c_str());
+          break;
+        case lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE:
+          controller->get_node()->deactivate();
+          break;
+        case lifecycle_msgs::msg::State::PRIMARY_STATE_FINALIZED:
+          RCLCPP_ERROR(
+            get_logger(), "Controller '%s' is in the finalized state and cannot be set to inactive",
+            controller_name.c_str());
+          return controller_state;
+          break;
+      }
+      break;
+    case lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE:
+      switch (controller_state.id())
+      {
+        case lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED:
+          new_state = controller->configure();
+          if (new_state.id() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE)
+          {
+            controller->get_node()->activate();
+          }
+          break;
+        case lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE:
+          controller->get_node()->activate();
+          break;
+        case lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE:
+          RCLCPP_INFO(
+            get_logger(), "Controller '%s' is already in the active state",
+            controller_name.c_str());
+          break;
+        case lifecycle_msgs::msg::State::PRIMARY_STATE_FINALIZED:
+          RCLCPP_ERROR(
+            get_logger(), "Controller '%s' is in the finalized state and cannot be set to active",
+            controller_name.c_str());
+          break;
+      }
+      break;
+    case lifecycle_msgs::msg::State::PRIMARY_STATE_FINALIZED:
+      switch (controller_state.id())
+      {
+        case lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED:
+          controller->get_node()->shutdown();
+          break;
+        case lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE:
+          new_state = controller->get_node()->cleanup();
+          if (new_state.id() == lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED)
+          {
+            controller->get_node()->shutdown();
+          }
+          break;
+        case lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE:
+          new_state = controller->get_node()->deactivate();
+          if (new_state.id() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE)
+          {
+            new_state = controller->get_node()->cleanup();
+            if (new_state.id() == lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED)
+            {
+              controller->get_node()->shutdown();
+            }
+          }
+          break;
+        case lifecycle_msgs::msg::State::PRIMARY_STATE_FINALIZED:
+          RCLCPP_INFO(
+            get_logger(), "Controller '%s' is already in the finalized state",
+            controller_name.c_str());
+          break;
+      }
+      break;
+    default:
+      RCLCPP_ERROR(get_logger(), "Parsed target state is not a valid lifecycle state");
+      break;
+  }
+  return controller->get_lifecycle_state();
+}
+
 void ControllerManager::propagate_deactivation_of_chained_mode(
   const std::vector<ControllerSpec> & controllers)
 {

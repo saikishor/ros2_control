@@ -205,6 +205,16 @@ public:
    */
   unsigned int get_update_rate() const;
 
+  /// A method to change the lifecycle state of the parsed controller
+  /**
+   * \param[in] controller controller to change the state.
+   * \param[in] target_state target state to set for a controller.
+   * \return The lifecycle state of the controller after the transition.
+   */
+  rclcpp_lifecycle::State set_controller_state(
+    controller_interface::ControllerInterfaceBaseSharedPtr controller,
+    const uint8_t & target_state);
+
 protected:
   void init_services();
 
